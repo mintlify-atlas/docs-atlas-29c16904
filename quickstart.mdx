@@ -1,0 +1,299 @@
+---
+title: Quick Start
+description: Get started with the AgrospAI Data Space Portal in minutes - connect your wallet, browse datasets, and make your first data transaction
+---
+
+# Quick Start Guide
+
+This guide will help you get started with the AgrospAI Data Space Portal. You'll learn how to connect your wallet, browse available datasets, and make your first data transaction.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+<Steps>
+  <Step title="Install a Web3 Wallet">
+    Install [MetaMask](https://metamask.io/), [WalletConnect](https://walletconnect.com/), or another compatible Ethereum wallet.
+  </Step>
+  
+  <Step title="Get Test Tokens">
+    For testing on Pontus-X DevNet, you'll need test tokens. Use the [faucet](/guides/wallet-setup#using-the-faucet) to get free test tokens.
+  </Step>
+  
+  <Step title="Add Pontus-X Network">
+    Add the Pontus-X network to your wallet. See the [Network Setup guide](/configuration/network-setup) for details.
+  </Step>
+</Steps>
+
+## Step 1: Connect Your Wallet
+
+Visit [portal.agrospai.udl.cat](https://portal.agrospai.udl.cat) and connect your wallet.
+
+<Steps>
+  <Step title="Click Connect Wallet">
+    Click the **Connect Wallet** button in the top right corner of the page.
+  </Step>
+  
+  <Step title="Select Your Wallet">
+    Choose your wallet provider from the ConnectKit modal:
+    - MetaMask
+    - WalletConnect
+    - Coinbase Wallet
+    - Trust Wallet
+    - Other supported wallets
+  </Step>
+  
+  <Step title="Approve Connection">
+    Approve the connection request in your wallet. The portal will never ask for your private keys or seed phrase.
+  </Step>
+  
+  <Step title="Select Network">
+    If prompted, switch to the Pontus-X network. The portal supports:
+    - **Pontus-X DevNet** (Chain ID: 32456) - For testing
+    - **Pontus-X TestNet** (Chain ID: 32457) - For testing
+  </Step>
+</Steps>
+
+<Info>
+Your wallet address will appear in the top right corner once connected. You can click it to view your profile and transaction history.
+</Info>
+
+## Step 2: Browse the Marketplace
+
+Explore available datasets and algorithms in the marketplace.
+
+### Search and Filter
+
+Use the search bar to find specific datasets:
+
+```
+Search examples:
+- "agriculture crop yield"
+- "weather data"
+- "soil quality sensors"
+```
+
+Apply filters to narrow your search:
+
+- **Asset Type**: Dataset or Algorithm
+- **Pricing**: Fixed price or Free
+- **Network**: Pontus-X DevNet or TestNet
+- **Service Type**: Download or Compute
+
+### Browse Featured Assets
+
+The homepage displays curated sections:
+
+- **Featured Assets** - Highlighted by the community
+- **Recent Assets** - Newly published datasets
+- **Top Sales** - Most popular assets
+- **Bookmarked Assets** - Your saved favorites (click the bookmark icon)
+
+<Tip>
+Click the bookmark icon on any asset to save it for later. Access your bookmarks from the main menu.
+</Tip>
+
+## Step 3: Access a Dataset
+
+Once you find a dataset you want to access:
+
+<Steps>
+  <Step title="View Asset Details">
+    Click on an asset to view its details page. Review:
+    - Description and metadata
+    - Pricing information
+    - File size and format
+    - Publisher information
+    - Sample data (if available)
+  </Step>
+  
+  <Step title="Check Pricing">
+    View the pricing model:
+    - **Fixed Price**: Pay once to download
+    - **Free**: No cost, gas fees only
+    
+    <Note>
+    The price is displayed in the datatoken price plus any marketplace fees. You'll see the total cost before confirming.
+    </Note>
+  </Step>
+  
+  <Step title="Purchase Access">
+    Click **Buy Now** or **Get Free Asset** to access the dataset.
+    
+    The portal will:
+    1. Calculate the total price (datatoken + fees)
+    2. Request token approval (if needed)
+    3. Execute the purchase transaction
+    4. Grant you access to download
+  </Step>
+  
+  <Step title="Download the Dataset">
+    After the transaction confirms, click **Download** to get your dataset files.
+    
+    <Info>
+    Downloads are tracked on-chain. You can re-download assets you've purchased at any time from your profile page.
+    </Info>
+  </Step>
+</Steps>
+
+## Step 4: Publish Your First Dataset (Optional)
+
+Share your own datasets with the community:
+
+<Steps>
+  <Step title="Navigate to Publish">
+    Click **Publish** in the main menu to start the publishing workflow.
+  </Step>
+  
+  <Step title="Enter Metadata">
+    Provide information about your dataset:
+    - Name and description
+    - Author and organization
+    - Tags and categories
+    - File(s) to publish
+  </Step>
+  
+  <Step title="Configure Access">
+    Choose how users can access your data:
+    - **Download**: Users download files directly
+    - **Compute-to-Data**: Users run algorithms without downloading
+    
+    <Warning>
+    If your dataset contains personal data, you must use Compute-to-Data and enable GDPR compliance features.
+    </Warning>
+  </Step>
+  
+  <Step title="Set Pricing">
+    Configure your pricing model:
+    - **Fixed Price**: Set a specific price in tokens
+    - **Free**: Make it freely accessible
+    
+    You can also configure marketplace fees (percentage of each sale).
+  </Step>
+  
+  <Step title="Publish to Blockchain">
+    Review your settings and click **Publish**. This will:
+    1. Create an NFT representing your dataset
+    2. Mint datatokens for access control
+    3. Store metadata on IPFS
+    4. Register your asset on-chain
+    
+    <Info>
+    Publishing requires three blockchain transactions: NFT creation, datatoken creation, and metadata registration. Each requires wallet approval.
+    </Info>
+  </Step>
+</Steps>
+
+For detailed publishing instructions, see the [Publishing Assets Guide](/guides/publishing-assets).
+
+## Step 5: Run a Compute Job (Advanced)
+
+Use Compute-to-Data to analyze private datasets:
+
+<Steps>
+  <Step title="Find a Compute Dataset">
+    Look for datasets with the **Compute** service type. These allow algorithms to run on the data without exposing the raw files.
+  </Step>
+  
+  <Step title="Select an Algorithm">
+    Choose an algorithm from the marketplace or publish your own. Algorithms must be Docker containers compatible with the Compute-to-Data environment.
+  </Step>
+  
+  <Step title="Configure the Job">
+    Set compute job parameters:
+    - Select dataset(s)
+    - Choose algorithm
+    - Set custom parameters (if supported)
+    - Select compute environment
+  </Step>
+  
+  <Step title="Start the Job">
+    Click **Start Compute Job** and approve the transactions. The compute job will run on the data provider's infrastructure.
+  </Step>
+  
+  <Step title="Monitor and Download Results">
+    Track your job status from your profile page. Once complete, download the results (logs and output files).
+  </Step>
+</Steps>
+
+For detailed Compute-to-Data instructions, see the [Compute Jobs Guide](/guides/compute-jobs).
+
+## Common Tasks
+
+<CardGroup cols={2}>
+  <Card title="Add Funds" icon="wallet" href="/guides/wallet-setup#funding-your-wallet">
+    Get test tokens from the faucet or bridge assets to Pontus-X
+  </Card>
+  
+  <Card title="View Your Assets" icon="user" href="/guides/consuming-assets#viewing-purchased-assets">
+    Access your purchased datasets and published assets
+  </Card>
+  
+  <Card title="Enable Automation" icon="robot" href="/guides/automation">
+    Set up automated testing with the automation wallet feature
+  </Card>
+  
+  <Card title="Verify Credentials" icon="certificate" href="/compliance/gaia-x#verifiable-credentials">
+    Create and verify Gaia-X compliant credentials
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Wallet won't connect">
+    **Solutions:**
+    - Make sure your wallet extension is unlocked
+    - Refresh the page and try again
+    - Check that you're using a supported wallet
+    - Clear browser cache and cookies
+  </Accordion>
+  
+  <Accordion title="Transaction failed">
+    **Common causes:**
+    - Insufficient balance for gas fees
+    - Network congestion (try increasing gas price)
+    - Rejected by user
+    - Smart contract error (check error message)
+    
+    View transaction details on the block explorer for more information.
+  </Accordion>
+  
+  <Accordion title="Can't download dataset">
+    **Solutions:**
+    - Verify you've completed the purchase transaction
+    - Check that the data provider is online
+    - Try downloading from your profile page
+    - Contact the dataset publisher if issue persists
+  </Accordion>
+  
+  <Accordion title="Asset not appearing in search">
+    **Possible reasons:**
+    - Asset is still being indexed (wait a few minutes)
+    - Asset is on a different network (check network filter)
+    - Asset has been removed by publisher
+    - Clear search filters and try again
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you're familiar with the basics:
+
+<CardGroup cols={3}>
+  <Card title="Learn Architecture" icon="sitemap" href="/architecture">
+    Understand how the portal works under the hood
+  </Card>
+  
+  <Card title="Core Features" icon="sparkles" href="/features/data-marketplace">
+    Explore advanced marketplace features
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/reference/hooks">
+    Integrate the portal into your applications
+  </Card>
+</CardGroup>
+
+<Note>
+Need help? Check out our [troubleshooting guides](/guides/wallet-setup#troubleshooting) or contact support via [GitHub Issues](https://github.com/AgrospAI/mvg-portal/issues).
+</Note>
