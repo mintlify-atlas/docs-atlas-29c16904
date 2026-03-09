@@ -1,0 +1,126 @@
+{
+  "projectType": "saas",
+  "projectName": "AgrospAI Data Space Portal",
+  "projectDescription": "A Gaia-X powered data marketplace platform enabling sovereign data-sharing and AI services in the agri-food sector.",
+  "theme": "linden",
+  "primaryColor": "#72044a",
+  "lightColor": "#040404",
+  "darkColor": "#044b67",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/data-marketplace",
+              "features/compute-to-data",
+              "features/asset-publishing",
+              "features/asset-discovery",
+              "features/wallet-integration"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/publishing-assets",
+              "guides/consuming-assets",
+              "guides/compute-jobs",
+              "guides/wallet-setup",
+              "guides/automation"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/environment-variables",
+              "configuration/network-setup",
+              "configuration/marketplace-fees",
+              "configuration/pricing-options"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "development/local-development",
+              "development/barge-integration",
+              "development/testing"
+            ]
+          },
+          {
+            "group": "Technical Reference",
+            "pages": [
+              "reference/data-sources",
+              "reference/hooks",
+              "reference/utilities",
+              "reference/components"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/production-build",
+              "deployment/docker",
+              "deployment/hosting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Compliance",
+        "groups": [
+          {
+            "group": "Privacy & Legal",
+            "pages": [
+              "compliance/gdpr",
+              "compliance/privacy-policies",
+              "compliance/terms-conditions",
+              "compliance/gaia-x"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Gaia-X compliant data marketplace",
+    "Compute-to-Data for privacy-preserving analytics",
+    "NFT and datatoken-based asset management",
+    "Multi-chain support with Ocean Protocol integration",
+    "Wallet automation and onboarding",
+    "GDPR-compliant privacy preference center",
+    "Verifiable credentials and presentations",
+    "Faucet integration for test networks",
+    "GraphQL-powered asset queries",
+    "ENS profile integration"
+  ],
+  "publicApiSurface": [
+    "useAsset() - Asset metadata and lifecycle management",
+    "useMarketMetadata() - Market configuration access",
+    "useProfile() - User profile and ENS data",
+    "useNetworkMetadata() - Network and chain information",
+    "useAccountPurgatory() - Account compliance checks",
+    "useBalance() - Token balance queries",
+    "useConsent() - GDPR consent management",
+    "queryMetadata() - Aquarius metadata queries",
+    "computeStart() - Initiate Compute-to-Data jobs",
+    "publishAsset() - Asset publishing workflow",
+    "orderAsset() - Asset consumption/ordering",
+    "getEnsProfile() - ENS profile resolution",
+    "verifyCredential() - Verifiable credential verification"
+  ]
+}
