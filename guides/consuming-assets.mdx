@@ -1,0 +1,472 @@
+---
+title: Consuming Assets
+description: Complete guide to discover, purchase, and download data assets from the AgrospAI Data Space Portal
+---
+
+Consume data assets from the AgrospAI Data Space Portal by purchasing access rights and downloading files. This guide covers asset discovery, purchasing, and consumption workflows.
+
+## Prerequisites
+
+- Connected Web3 wallet with sufficient funds
+- Base tokens (OCEAN, USDC, etc.) for purchases
+- Network tokens for transaction fees
+
+## Asset Discovery
+
+Find assets through:
+
+- **Search**: Use keywords, tags, and filters
+- **Browse**: Explore categories and collections
+- **Profile**: View your published and purchased assets
+- **Related Assets**: Discover similar datasets
+
+## Asset Types
+
+The portal supports three asset types:
+
+1. **Datasets**: Data files available for download
+2. **Algorithms**: Code for Compute-to-Data processing
+3. **SaaS**: Software services accessed via redirect URL
+
+## Consumption Workflow
+
+<Steps>
+
+<Step title="Review Asset Details">
+
+Examine the asset page to understand:
+
+**Metadata**
+- Title and description
+- Publisher information
+- Data type and format
+- License terms
+- Tags and categories
+
+**Pricing Information**
+- Price and payment token
+- Access duration/timeout
+- Provider fees
+- Total cost breakdown
+
+**Access Details**
+```tsx
+// Asset access details are loaded automatically
+const price: AssetPrice = getAvailablePrice(asset)
+const isUnsupportedPricing = 
+  !asset?.accessDetails ||
+  asset?.accessDetails?.type === 'NOT_SUPPORTED'
+```
+
+**File Preview**
+- File type and size (when available)
+- Sample data (if provided by publisher)
+- Content type indicator
+
+</Step>
+
+<Step title="Check Access Requirements">
+
+**Wallet Allowlist/Denylist**
+
+Some assets restrict access to specific wallets:
+
+```tsx
+// Whitelist check in AssetActions
+const isAccountIdWhitelisted = 
+  checkIfAddressIsAllowed(accountId, asset.credentials)
+```
+
+<Warning>
+If your wallet is not whitelisted or is on the denylist, you cannot purchase or access the asset.
+</Warning>
+
+**Terms and Conditions**
+
+You must accept:
+1. Portal Terms and Conditions
+2. Asset-specific terms (if provided)
+
+```tsx
+<TermsAndConditionsCheckbox
+  {...content.form.portalTermsAndConditions}
+  licenses={[defaultTermsAndConditionsUrl]}
+  disabled={isLoading}
+/>
+<TermsAndConditionsCheckbox
+  {...content.form.assetTermsAndConditions}
+  licenses={[asset?.metadata?.license]}
+  disabled={isLoading}
+/>
+```
+
+</Step>
+
+<Step title="Acquire Access Rights">
+
+Purchase methods depend on asset pricing:
+
+### Fixed Price Assets
+
+```tsx
+// Order and pricing calculation
+const orderPriceAndFees = await getOrderPriceAndFees(
+  asset,
+  accountId || ZERO_ADDRESS
+)
+
+// Place order
+const orderTx = await order(
+  signer,
+  asset,
+  orderPriceAndFees,
+  accountId,
+  hasDatatoken
+)
+```
+
+**Price Components**
+- Base price (set by publisher)
+- Ocean Protocol fees
+- Provider fees
+- Network gas fees
+
+### Free Assets
+
+No payment required, but you still need to:
+1. Accept terms and conditions
+2. Execute transaction to obtain datatoken
+3. Pay network gas fees
+
+### Datatoken Holders
+
+If you already own the asset's datatoken:
+- Skip payment step
+- Directly access/download content
+- Use existing order transaction
+
+```tsx
+const hasDatatoken = Number(dtBalance) >= 1
+
+if (hasDatatoken) {
+  // Direct access without purchasing
+  await downloadFile(signer, asset, accountId, validOrderTx)
+}
+```
+
+</Step>
+
+<Step title="Set User Parameters (Optional)">
+
+Some assets require consumer parameters:
+
+```tsx
+// Parse consumer parameters from form
+const dataServiceParams = parseConsumerParameterValues(
+  values?.dataServiceParams,
+  asset.services[0].consumerParameters
+)
+
+// Pass to download function
+await downloadFile(
+  signer, 
+  asset, 
+  accountId, 
+  validOrderTx, 
+  dataServiceParams
+)
+```
+
+Parameter types:
+- **Text**: String input
+- **Number**: Numeric value
+- **Boolean**: True/false toggle
+- **Select**: Dropdown options
+
+<Tip>
+User-defined parameters allow publishers to offer configurable data queries or filtered datasets.
+</Tip>
+
+</Step>
+
+<Step title="Download or Access Content">
+
+### Standard Downloads
+
+For downloadable datasets:
+
+```tsx
+async function handleOrderOrDownload() {
+  setIsLoading(true)
+  try {
+    if (isOwned) {
+      // Already purchased, proceed to download
+      setStatusText('Decrypting file URL...')
+      setIsDownloading(true)
+      
+      await Promise.all([
+        downloadFile(signer, asset, accountId, validOrderTx),
+        new Promise((resolve) => setTimeout(resolve, 3000))
+      ])
+      
+      setIsDownloading(false)
+    } else {
+      // Purchase first
+      setStatusText('Buying datatoken...')
+      const orderTx = await order(
+        signer,
+        asset,
+        orderPriceAndFees,
+        accountId,
+        hasDatatoken
+      )
+      setIsOwned(true)
+      setValidOrderTx(orderTx.transactionHash)
+    }
+  } catch (error) {
+    toast.error('Failed to download file!')
+  }
+  setIsLoading(false)
+}
+```
+
+### SaaS Access
+
+For Software-as-a-Service offerings:
+
+**Subscription Mode**
+```tsx
+if (asset?.metadata?.additionalInformation?.saas?.redirectUrl) {
+  // One-time purchase, then redirect
+  window.open(
+    asset.metadata.additionalInformation.saas.redirectUrl, 
+    '_blank'
+  )
+}
+```
+
+**Pay-per-Use Mode**
+- Direct access to service URL
+- No upfront purchase required
+- Metered usage through contracting provider
+
+</Step>
+
+</Steps>
+
+## Price Calculation
+
+Understanding total costs:
+
+```tsx
+interface OrderPriceAndFees {
+  price: string           // Base asset price
+  publisherMarketOrderFee: string  // Publisher fees
+  publisherMarketFixedSwapFee: string
+  consumeMarketOrderFee: string    // Marketplace fees
+  consumeMarketFixedSwapFee: string
+  providerFee: ProviderFees        // Provider service fees
+  opcFee: string          // Ocean Protocol community fee
+}
+```
+
+**Display Component**
+```tsx
+<Price
+  price={price}
+  orderPriceAndFees={orderPriceAndFees}
+  size="large"
+/>
+```
+
+## Redownloading Assets
+
+After initial purchase:
+
+1. Navigate to asset page
+2. Click download button
+3. Redownload within access period (no additional cost)
+4. After timeout expires, repurchase required
+
+```tsx
+// Check if valid order exists
+const isOwned = asset?.accessDetails?.isOwned
+const validOrderTx = asset?.accessDetails?.validOrderTx
+
+if (isOwned && validOrderTx) {
+  // Free redownload within timeout period
+}
+```
+
+## Using Automation Wallet
+
+Automate purchases without manual confirmations:
+
+```tsx
+import { useAutomation } from '@context/Automation/AutomationProvider'
+
+const { isAutomationEnabled, autoWallet } = useAutomation()
+
+// Automation wallet used for signing
+const signerToUse = isAutomationEnabled ? autoWallet : signer
+```
+
+Benefits:
+- No wallet popups
+- Faster transactions
+- Batch operations
+- Programmatic access
+
+See [Automation Guide](/guides/automation) for setup.
+
+## Viewing Purchase History
+
+Access your consumption history:
+
+1. Navigate to your profile
+2. Select "Downloads" tab
+3. View all purchased assets
+4. Track spending and usage
+
+## Troubleshooting
+
+### Purchase Failures
+
+**Insufficient balance**
+```
+Error: User balance insufficient
+```
+Solution: Add funds to your wallet for the required token
+
+**Asset not purchasable**
+```
+Alert: No pricing schema available for this asset
+```
+Causes:
+- Publisher disabled ordering
+- Asset in invalid state
+- Pricing not configured
+
+**Wallet not whitelisted**
+```tsx
+<WhitelistIndicator
+  accountId={accountId}
+  isAccountIdWhitelisted={false}
+/>
+```
+Solution: Contact publisher for access or use whitelisted wallet
+
+**Transaction timeout**
+- Increase gas price
+- Retry transaction
+- Check network congestion
+
+### Download Issues
+
+**File decryption failed**
+```
+Error: Failed to download file
+```
+Causes:
+- Provider service offline
+- File no longer accessible
+- Network connectivity issues
+
+Solution:
+```tsx
+// Retry download with same order tx
+setRetry(true)
+await downloadFile(signer, asset, accountId, validOrderTx)
+```
+
+**Order expired**
+- Access period (timeout) has passed
+- Repurchase asset
+- Check timeout duration on asset page
+
+### Network Issues
+
+**Wrong network**
+<Warning>
+Ensure your wallet is connected to the same network as the asset.
+</Warning>
+
+```tsx
+const { isAssetNetwork } = useAsset()
+const { isSupportedOceanNetwork } = useNetworkMetadata()
+
+if (!isAssetNetwork || !isSupportedOceanNetwork) {
+  // Prompt user to switch networks
+}
+```
+
+**Provider unavailable**
+- Provider service is down
+- Try again later
+- Contact asset publisher
+
+## Best Practices
+
+1. **Review before purchasing**: Check all details, pricing, and terms
+2. **Verify wallet allowlist**: Ensure your address has access
+3. **Check access period**: Understand how long you can redownload
+4. **Test with small purchases**: Start with low-cost assets
+5. **Save order transactions**: Keep record of purchase tx hashes
+6. **Monitor token approvals**: Review before confirming transactions
+7. **Use automation for bulk**: Enable automation wallet for multiple purchases
+8. **Download promptly**: Get files before timeout expires
+
+## Advanced Usage
+
+### Programmatic Access
+
+Use the Ocean Protocol libraries directly:
+
+```typescript
+import { Datatoken, ProviderInstance } from '@oceanprotocol/lib'
+
+// Order asset
+const datatoken = new Datatoken(signer)
+const tx = await datatoken.buyDatatokens(
+  datatokenAddress,
+  serviceIndex,
+  accountId
+)
+
+// Download file
+const downloadUrl = await ProviderInstance.getDownloadUrl(
+  asset.services[0].id,
+  asset,
+  accountId,
+  tx.transactionHash
+)
+```
+
+### Contracting Provider (SaaS)
+
+For pay-per-use SaaS assets:
+
+```tsx
+{isContractingFeatureEnabled &&
+  asset?.metadata?.additionalInformation?.saas?.paymentMode === 
+    'Pay per use' && (
+  <ContractingProvider did={asset.id} />
+)}
+```
+
+Monitor usage and payments through the contracting provider interface.
+
+## Related Resources
+
+- [Publishing Assets](/guides/publishing-assets)
+- [Compute-to-Data Jobs](/guides/compute-jobs)
+- [Wallet Setup](/guides/wallet-setup)
+- [Automation Features](/guides/automation)
+
+## Code References
+
+Key implementation files:
+- Download flow: `src/components/Asset/AssetActions/Download/index.tsx:191-254`
+- Price calculation: `src/utils/accessDetailsAndPricing.ts`
+- Order processing: `src/utils/order.ts`
+- File download: `src/utils/provider.ts`

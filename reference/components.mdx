@@ -1,0 +1,592 @@
+---
+title: 'Component Reference'
+description: 'Reusable React components for UI elements, asset display, and wallet interactions'
+---
+
+## Overview
+
+The AgrospAI Data Space Portal provides a comprehensive library of accessible, tested React components.
+
+## Atoms
+
+Basic building block components.
+
+### Button
+
+Primary interaction component with multiple styles and link support.
+
+<ParamField path="children" type="ReactNode" required>
+  Button content
+</ParamField>
+
+<ParamField path="style" type="'primary' | 'ghost' | 'text'" default="primary">
+  Visual style variant
+</ParamField>
+
+<ParamField path="size" type="'small'" optional>
+  Size variant
+</ParamField>
+
+<ParamField path="href" type="string" optional>
+  External link URL (opens in new tab)
+</ParamField>
+
+<ParamField path="to" type="string" optional>
+  Internal Next.js link path
+</ParamField>
+
+<ParamField path="onClick" type="(e: FormEvent) => void" optional>
+  Click handler
+</ParamField>
+
+<ParamField path="disabled" type="boolean" optional>
+  Disabled state
+</ParamField>
+
+<ParamField path="type" type="'submit' | 'button'" default="button">
+  Button type for forms
+</ParamField>
+
+<ParamField path="arrow" type="boolean" optional>
+  Show arrow indicator for internal links
+</ParamField>
+
+```typescript
+import Button from '@shared/atoms/Button'
+
+// Primary button
+<Button onClick={handleClick}>Click Me</Button>
+
+// Ghost style
+<Button style="ghost" size="small">Cancel</Button>
+
+// Internal link
+<Button to="/publish" arrow>Publish Asset</Button>
+
+// External link
+<Button href="https://docs.oceanprotocol.com">Documentation</Button>
+
+// Submit button
+<form onSubmit={handleSubmit}>
+  <Button type="submit" style="primary">Submit</Button>
+</form>
+```
+
+### Alert
+
+Display important messages with optional actions.
+
+<ParamField path="text" type="string" required>
+  Alert message (supports Markdown)
+</ParamField>
+
+<ParamField path="state" type="'error' | 'warning' | 'info' | 'success'" required>
+  Alert severity level
+</ParamField>
+
+<ParamField path="title" type="string" optional>
+  Alert title
+</ParamField>
+
+<ParamField path="badge" type="string" optional>
+  Badge text to show next to title
+</ParamField>
+
+<ParamField path="action" type="object" optional>
+  Action button configuration
+</ParamField>
+
+<ParamField path="onDismiss" type="() => void" optional>
+  Dismissal handler (shows close button)
+</ParamField>
+
+```typescript
+import Alert from '@shared/atoms/Alert'
+import { useState } from 'react'
+
+// Simple error alert
+<Alert state="error" text="Transaction failed. Please try again." />
+
+// Warning with title
+<Alert
+  state="warning"
+  title="Network Sync"
+  text="Subgraph is syncing. Data may be outdated."
+/>
+
+// Info with badge
+<Alert
+  state="info"
+  title="Beta Feature"
+  badge="NEW"
+  text="This feature is currently in beta testing."
+/>
+
+// With action button
+<Alert
+  state="success"
+  text="Asset published successfully!"
+  action={{
+    name: 'View Asset',
+    style: 'primary',
+    handleAction: () => router.push(`/asset/${did}`)
+  }}
+/>
+
+// Dismissible
+function DismissibleAlert() {
+  const [show, setShow] = useState(true)
+  if (!show) return null
+
+  return (
+    <Alert
+      state="info"
+      text="Welcome to the portal!"
+      onDismiss={() => setShow(false)}
+    />
+  )
+}
+```
+
+### Loader
+
+Loading spinner with optional message.
+
+<ParamField path="message" type="string" optional>
+  Loading message to display
+</ParamField>
+
+<ParamField path="white" type="boolean" optional>
+  Use white color (for dark backgrounds)
+</ParamField>
+
+```typescript
+import Loader from '@shared/atoms/Loader'
+
+// Simple loader
+<Loader />
+
+// With message
+<Loader message="Loading assets..." />
+
+// White variant
+<div style={{ background: 'black', padding: '2rem' }}>
+  <Loader white message="Processing..." />
+</div>
+
+// In Suspense boundary
+import { Suspense } from 'react'
+
+<Suspense fallback={<Loader message="Loading data..." />}>
+  <AssetList />
+</Suspense>
+```
+
+### Modal
+
+Accessible modal dialog component.
+
+<ParamField path="title" type="string" required>
+  Modal title
+</ParamField>
+
+<ParamField path="isOpen" type="boolean" required>
+  Whether modal is open
+</ParamField>
+
+<ParamField path="onToggleModal" type="() => void" required>
+  Function to toggle modal open/closed
+</ParamField>
+
+<ParamField path="children" type="ReactNode" required>
+  Modal content
+</ParamField>
+
+```typescript
+import Modal from '@shared/atoms/Modal'
+import Button from '@shared/atoms/Button'
+import { useState } from 'react'
+
+function ModalExample() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <>
+      <Button onClick={() => setIsOpen(true)}>Open Modal</Button>
+
+      <Modal
+        title="Confirm Action"
+        isOpen={isOpen}
+        onToggleModal={() => setIsOpen(false)}
+      >
+        <div>
+          <p>Are you sure you want to proceed?</p>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <Button onClick={() => setIsOpen(false)} style="ghost">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm}>
+              Confirm
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  )
+}
+```
+
+### Badge
+
+Small label for status or categorization.
+
+<ParamField path="label" type="string" required>
+  Badge text
+</ParamField>
+
+<ParamField path="className" type="string" optional>
+  Additional CSS classes
+</ParamField>
+
+```typescript
+import Badge from '@shared/atoms/Badge'
+
+<Badge label="Beta" />
+<Badge label="New" className={styles.newBadge} />
+
+// With other components
+<h2>
+  Advanced Features <Badge label="Pro" />
+</h2>
+```
+
+### Container
+
+Layout container with max-width constraint.
+
+<ParamField path="children" type="ReactNode" required>
+  Container content
+</ParamField>
+
+<ParamField path="className" type="string" optional>
+  Additional CSS classes
+</ParamField>
+
+```typescript
+import Container from '@shared/atoms/Container'
+
+<Container>
+  <h1>Page Title</h1>
+  <p>Content goes here...</p>
+</Container>
+```
+
+### Tooltip
+
+Accessible tooltip component.
+
+```typescript
+import Tooltip from '@shared/atoms/Tooltip'
+
+<Tooltip content="Additional information">
+  <span>Hover me</span>
+</Tooltip>
+```
+
+### Table
+
+Data table with sorting and pagination support.
+
+```typescript
+import Table from '@shared/atoms/Table'
+
+const columns = [
+  { name: 'Name', selector: 'name' },
+  { name: 'Price', selector: 'price' },
+  { name: 'Owner', selector: 'owner' }
+]
+
+const data = [
+  { name: 'Dataset 1', price: '10 OCEAN', owner: '0x123...' },
+  { name: 'Dataset 2', price: '5 OCEAN', owner: '0x456...' }
+]
+
+<Table columns={columns} data={data} />
+```
+
+## Molecules
+
+Composite components combining atoms.
+
+### Price
+
+Display asset price with token symbol.
+
+<ParamField path="price" type="AssetPrice" required>
+  Price object from Ocean Protocol
+</ParamField>
+
+<ParamField path="orderPriceAndFees" type="OrderPriceAndFees" optional>
+  Detailed price breakdown
+</ParamField>
+
+<ParamField path="size" type="'small' | 'mini' | 'large'" optional>
+  Display size
+</ParamField>
+
+<ParamField path="className" type="string" optional>
+  Additional CSS classes
+</ParamField>
+
+```typescript
+import Price from '@shared/Price'
+
+// Simple price display
+<Price price={asset.price} />
+
+// With fees breakdown
+<Price 
+  price={asset.price}
+  orderPriceAndFees={orderDetails}
+  size="large"
+/>
+
+// In asset card
+function AssetCard({ asset }) {
+  return (
+    <div>
+      <h3>{asset.metadata.name}</h3>
+      <Price price={asset.price} size="small" />
+    </div>
+  )
+}
+```
+
+### Publisher
+
+Display publisher information with avatar and address.
+
+```typescript
+import Publisher from '@shared/Publisher'
+
+<Publisher account={asset.nft.owner} />
+```
+
+### NetworkName
+
+Display network name with icon.
+
+```typescript
+import NetworkName from '@shared/NetworkName'
+
+<NetworkName networkId={137} />
+// Shows "Polygon" with Polygon icon
+```
+
+### Pagination
+
+Pagination controls for lists.
+
+```typescript
+import Pagination from '@shared/Pagination'
+import { useState } from 'react'
+
+function AssetList() {
+  const [page, setPage] = useState(1)
+  const { data } = useAssets(address, 'dataset', chainId, page)
+
+  return (
+    <>
+      {data.results.map(asset => (
+        <AssetCard key={asset.id} asset={asset} />
+      ))}
+      <Pagination
+        currentPage={page}
+        totalPages={data.totalPages}
+        onPageChange={setPage}
+      />
+    </>
+  )
+}
+```
+
+### Time
+
+Format and display timestamps.
+
+```typescript
+import Time from '@shared/atoms/Time'
+
+// Relative time ("2 hours ago")
+<Time date={asset.metadata.created} relative />
+
+// Absolute time
+<Time date={asset.metadata.created} />
+```
+
+### Tags
+
+Display asset tags.
+
+```typescript
+import Tags from '@shared/atoms/Tags'
+
+<Tags items={asset.metadata.tags} />
+```
+
+## Complex Components
+
+### Web3Feedback
+
+Display transaction status and feedback.
+
+```typescript
+import Web3Feedback from '@shared/Web3Feedback'
+
+function TransactionButton() {
+  const [txHash, setTxHash] = useState()
+
+  return (
+    <>
+      <Button onClick={handleTransaction}>Execute</Button>
+      {txHash && <Web3Feedback txHash={txHash} />}
+    </>
+  )
+}
+```
+
+### WalletNetworkSwitcher
+
+Network switching component for multi-chain support.
+
+```typescript
+import WalletNetworkSwitcher from '@shared/WalletNetworkSwitcher'
+
+<WalletNetworkSwitcher />
+```
+
+### Page
+
+Page layout wrapper with SEO support.
+
+```typescript
+import Page from '@shared/Page'
+
+function AssetPage({ asset }) {
+  return (
+    <Page 
+      title={asset.metadata.name}
+      description={asset.metadata.description}
+      uri={`/asset/${asset.id}`}
+    >
+      {/* Page content */}
+    </Page>
+  )
+}
+```
+
+## Component Composition
+
+Components are designed to work together:
+
+```typescript
+import Container from '@shared/atoms/Container'
+import Alert from '@shared/atoms/Alert'
+import Button from '@shared/atoms/Button'
+import Loader from '@shared/atoms/Loader'
+import Modal from '@shared/atoms/Modal'
+import { useState, Suspense } from 'react'
+
+function AssetPublisher() {
+  const [showModal, setShowModal] = useState(false)
+  const [error, setError] = useState(null)
+
+  return (
+    <Container>
+      {error && (
+        <Alert
+          state="error"
+          text={error}
+          onDismiss={() => setError(null)}
+        />
+      )}
+
+      <Button onClick={() => setShowModal(true)}>
+        Publish New Asset
+      </Button>
+
+      <Modal
+        title="Publish Asset"
+        isOpen={showModal}
+        onToggleModal={() => setShowModal(false)}
+      >
+        <Suspense fallback={<Loader message="Loading form..." />}>
+          <PublishForm onError={setError} />
+        </Suspense>
+      </Modal>
+    </Container>
+  )
+}
+```
+
+## Accessibility
+
+All components follow accessibility best practices:
+
+- Semantic HTML elements
+- ARIA labels and roles
+- Keyboard navigation support
+- Focus management
+- Screen reader compatibility
+
+```typescript
+// Buttons announce their purpose
+<Button aria-label="Download dataset">Download</Button>
+
+// Modals trap focus and support Escape key
+<Modal title="Settings" isOpen={open} onToggleModal={close}>
+  {/* Focus is trapped within modal */}
+</Modal>
+
+// Alerts use appropriate ARIA roles
+<Alert state="error" text="Error message" />
+// Rendered with role="alert" for screen readers
+```
+
+## Testing Components
+
+All components include comprehensive test suites:
+
+```typescript
+import { render, screen } from '@testing-library/react'
+import Button from '@shared/atoms/Button'
+
+test('Button renders with children', () => {
+  render(<Button>Click me</Button>)
+  expect(screen.getByText('Click me')).toBeInTheDocument()
+})
+
+test('Button calls onClick handler', () => {
+  const handleClick = jest.fn()
+  render(<Button onClick={handleClick}>Click me</Button>)
+  screen.getByText('Click me').click()
+  expect(handleClick).toHaveBeenCalledTimes(1)
+})
+```
+
+## Styling
+
+Components use CSS Modules for scoped styling:
+
+```typescript
+import styles from './MyComponent.module.css'
+import Button from '@shared/atoms/Button'
+
+function MyComponent() {
+  return (
+    <div className={styles.wrapper}>
+      <Button className={styles.customButton}>Custom Styled</Button>
+    </div>
+  )
+}
+```

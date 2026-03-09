@@ -1,0 +1,317 @@
+---
+title: Network Setup
+description: Configure blockchain networks and chain settings for the AgrospAI Data Space Portal
+---
+
+The AgrospAI Data Space Portal supports multiple blockchain networks. This page documents the network configuration and how to add custom chains.
+
+## Supported Networks
+
+The portal is configured to work with Pontus-X networks by default:
+
+### Pontus-X DevNet
+
+<ParamField path="chainId" type="number" default="32456">
+  Unique chain identifier for Pontus-X DevNet.
+</ParamField>
+
+<ParamField path="network" type="string" default="pontusx-devnet">
+  Network name identifier.
+</ParamField>
+
+<ParamField path="oceanTokenSymbol" type="string" default="OCEAN">
+  Symbol for the Ocean Protocol token on this network.
+</ParamField>
+
+**Contract Addresses:**
+
+<CodeGroup>
+```javascript DevNet Contracts
+{
+  oceanTokenAddress: '0xdF171F74a8d3f4e2A789A566Dce9Fa4945196112',
+  nftFactoryAddress: '0xFdC4a5DEaCDfc6D82F66e894539461a269900E13',
+  fixedRateExchangeAddress: '0x8372715D834d286c9aECE1AcD51Da5755B32D505',
+  dispenserAddress: '0x5461b629E01f72E0A468931A36e039Eea394f9eA',
+  opfCommunityFeeCollector: '0x1f84fB438292269219f9396D57431eA9257C23d4'
+}
+```
+</CodeGroup>
+
+**Network Endpoints:**
+
+<ParamField path="nodeUri" type="string">
+  RPC endpoint for blockchain interaction.
+  
+  **Value:** `https://rpc.dev.pontus-x.eu`
+</ParamField>
+
+<ParamField path="providerUri" type="string">
+  Ocean Provider service endpoint.
+  
+  **Value:** `https://provider.agrospai.udl.cat`
+</ParamField>
+
+<ParamField path="metadataCacheUri" type="string">
+  Aquarius metadata cache endpoint.
+  
+  **Value:** `https://aquarius.pontus-x.eu`
+</ParamField>
+
+<ParamField path="subgraphUri" type="string">
+  The Graph subgraph endpoint.
+  
+  **Value:** `https://subgraph.dev.pontus-x.eu`
+</ParamField>
+
+<ParamField path="explorerUri" type="string">
+  Block explorer URL.
+  
+  **Value:** `https://explorer.pontus-x.eu/pontusx/dev`
+</ParamField>
+
+**Transaction Settings:**
+
+<ParamField path="startBlock" type="number" default="57428">
+  Starting block number for event indexing.
+</ParamField>
+
+<ParamField path="transactionBlockTimeout" type="number" default="50">
+  Number of blocks to wait before transaction timeout.
+</ParamField>
+
+<ParamField path="transactionConfirmationBlocks" type="number" default="1">
+  Number of confirmations required for a transaction.
+</ParamField>
+
+<ParamField path="transactionPollingTimeout" type="number" default="750">
+  Polling timeout in milliseconds for transaction status.
+</ParamField>
+
+<ParamField path="gasFeeMultiplier" type="number" default="1.1">
+  Multiplier applied to estimated gas fees (10% buffer).
+</ParamField>
+
+### Pontus-X TestNet
+
+<ParamField path="chainId" type="number" default="32457">
+  Unique chain identifier for Pontus-X TestNet.
+</ParamField>
+
+<ParamField path="network" type="string" default="pontusx-testnet">
+  Network name identifier.
+</ParamField>
+
+**Contract Addresses:**
+
+<CodeGroup>
+```javascript TestNet Contracts
+{
+  oceanTokenAddress: '0x5B190F9E2E721f8c811E4d584383E3d57b865C69',
+  nftFactoryAddress: '0x2C4d542ff791890D9290Eec89C9348A4891A6Fd2',
+  fixedRateExchangeAddress: '0xcE0F39abB6DA2aE4d072DA78FA0A711cBB62764E',
+  dispenserAddress: '0xaB5B68F88Bc881CAA427007559E9bbF8818026dE',
+  opfCommunityFeeCollector: '0xACC8d1B2a0007951fb4ed622ACB1C4fcCAbe778D'
+}
+```
+</CodeGroup>
+
+**Network Endpoints:**
+
+<ParamField path="nodeUri" type="string">
+  RPC endpoint for blockchain interaction.
+  
+  **Value:** `https://rpc.test.pontus-x.eu`
+</ParamField>
+
+<ParamField path="providerUri" type="string">
+  Ocean Provider service endpoint.
+  
+  **Value:** `https://provider.agrospai.udl.cat`
+</ParamField>
+
+<ParamField path="subgraphUri" type="string">
+  The Graph subgraph endpoint.
+  
+  **Value:** `https://subgraph.test.pontus-x.eu`
+</ParamField>
+
+<ParamField path="explorerUri" type="string">
+  Block explorer URL.
+  
+  **Value:** `https://explorer.pontus-x.eu/pontusx/test`
+</ParamField>
+
+**Transaction Settings:**
+
+<ParamField path="startBlock" type="number" default="82191">
+  Starting block number for event indexing.
+</ParamField>
+
+## Chain Configuration File
+
+Networks are defined in `chains.config.js`. The configuration follows the Ocean.js `ConfigHelperConfig` format.
+
+### Chain Object Structure
+
+```javascript chains.config.js
+const chains = [
+  {
+    chainId: 32456,
+    isDefault: true,
+    isCustom: true,
+    network: 'pontusx-devnet',
+    oceanTokenSymbol: 'OCEAN',
+    oceanTokenAddress: '0xdF171F74a8d3f4e2A789A566Dce9Fa4945196112',
+    nftFactoryAddress: '0xFdC4a5DEaCDfc6D82F66e894539461a269900E13',
+    fixedRateExchangeAddress: '0x8372715D834d286c9aECE1AcD51Da5755B32D505',
+    dispenserAddress: '0x5461b629E01f72E0A468931A36e039Eea394f9eA',
+    opfCommunityFeeCollector: '0x1f84fB438292269219f9396D57431eA9257C23d4',
+    startBlock: 57428,
+    transactionBlockTimeout: 50,
+    transactionConfirmationBlocks: 1,
+    transactionPollingTimeout: 750,
+    gasFeeMultiplier: 1.1,
+    providerUri: 'https://provider.agrospai.udl.cat',
+    providerAddress: '0x94549951623DD6c3265DBbB1b032d6cF48Ba7811',
+    metadataCacheUri: 'https://aquarius.pontus-x.eu',
+    nodeUri: 'https://rpc.dev.pontus-x.eu',
+    subgraphUri: 'https://subgraph.dev.pontus-x.eu',
+    explorerUri: 'https://explorer.pontus-x.eu/pontusx/dev'
+  }
+]
+```
+
+### Helper Functions
+
+The configuration file exports several utility functions:
+
+<ParamField path="getDefaultChainIds()" type="function">
+  Returns an array of chain IDs that are marked as default.
+  
+  ```javascript
+  const defaultChains = getDefaultChainIds()
+  // Returns: [32456, 32457]
+  ```
+</ParamField>
+
+<ParamField path="getSupportedChainIds()" type="function">
+  Returns an array of all supported chain IDs.
+  
+  ```javascript
+  const supportedChains = getSupportedChainIds()
+  // Returns: [32456, 32457]
+  ```
+</ParamField>
+
+<ParamField path="getCustomChainIds()" type="function">
+  Returns an array of chain IDs marked as custom chains.
+  
+  ```javascript
+  const customChains = getCustomChainIds()
+  // Returns: [32456, 32457]
+  ```
+</ParamField>
+
+## Adding a Custom Network
+
+To add a new blockchain network:
+
+1. **Add chain configuration** to `chains.config.js`:
+
+```javascript chains.config.js
+const chains = [
+  // ... existing chains
+  {
+    chainId: 12345,
+    isDefault: false,
+    isCustom: true,
+    network: 'my-custom-network',
+    oceanTokenSymbol: 'OCEAN',
+    oceanTokenAddress: '0x...',
+    nftFactoryAddress: '0x...',
+    fixedRateExchangeAddress: '0x...',
+    dispenserAddress: '0x...',
+    opfCommunityFeeCollector: '0x...',
+    startBlock: 0,
+    transactionBlockTimeout: 50,
+    transactionConfirmationBlocks: 1,
+    transactionPollingTimeout: 750,
+    gasFeeMultiplier: 1.1,
+    providerUri: 'https://provider.example.com',
+    providerAddress: '0x...',
+    metadataCacheUri: 'https://aquarius.example.com',
+    nodeUri: 'https://rpc.example.com',
+    subgraphUri: 'https://subgraph.example.com',
+    explorerUri: 'https://explorer.example.com'
+  }
+]
+```
+
+2. **Deploy Ocean Protocol contracts** to the new network (if not already deployed).
+
+3. **Set `isDefault: true`** if you want the network to be selected by default.
+
+4. **Restart the application** for changes to take effect.
+
+## Network Status Monitoring
+
+The portal includes network status monitoring configuration in `app.config.js`:
+
+```javascript app.config.js
+networkAlertConfig: {
+  // Refresh interval for network status - 30 sec
+  refreshInterval: 30000,
+  // Margin of error for block count
+  errorMargin: 10,
+  // Map chainIds to their respective status endpoints
+  statusEndpoints: {
+    32456: 'https://status.dev.pontus-x.eu/'
+  }
+}
+```
+
+<ParamField path="refreshInterval" type="number" default="30000">
+  Interval in milliseconds to refresh network status (30 seconds).
+</ParamField>
+
+<ParamField path="errorMargin" type="number" default="10">
+  Acceptable difference between min/max block numbers before showing an alert.
+</ParamField>
+
+<ParamField path="statusEndpoints" type="object">
+  Map of chain IDs to their respective status page endpoints.
+</ParamField>
+
+## Provider Configuration
+
+The Ocean Provider address is consistent across both networks:
+
+<ParamField path="providerAddress" type="string" default="0x94549951623DD6c3265DBbB1b032d6cF48Ba7811">
+  Address of the Ocean Provider service responsible for data asset provisioning.
+</ParamField>
+
+<ParamField path="providerUri" type="string" default="https://provider.agrospai.udl.cat">
+  HTTP endpoint for the Ocean Provider service.
+</ParamField>
+
+## Faucet Configuration
+
+For testnet environments, a faucet service is available:
+
+```javascript app.config.js
+faucet: {
+  baseUri: 'https://faucet.api.pontus-x.eu'
+}
+```
+
+<ParamField path="faucet.baseUri" type="string" default="https://faucet.api.pontus-x.eu">
+  Base URI for the token faucet service on Pontus-X networks.
+</ParamField>
+
+## Default Token Symbol
+
+The portal uses a default token symbol for display purposes:
+
+<ParamField path="defaultTokenSymbol" type="string" default="EURAU">
+  Default token symbol used as fallback value in various components.
+</ParamField>

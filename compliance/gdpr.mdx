@@ -1,0 +1,263 @@
+---
+title: GDPR Compliance
+description: Learn how the AgrospAI Data Space Portal implements GDPR-compliant features including cookie consent management and privacy preference controls.
+---
+
+## Overview
+
+The AgrospAI Data Space Portal is designed with privacy and GDPR compliance at its core. The platform implements a comprehensive privacy preference center that gives users full control over their data and consent preferences.
+
+<Note>
+The portal processes minimal personal data and does not use cookies or web storage for marketing, statistics, or tracking purposes. Only technically essential web storage is used to enable portal functionality.
+</Note>
+
+## Privacy-First Architecture
+
+The portal follows a privacy-by-design approach:
+
+- **Minimal data collection**: Only IP addresses are processed for technical requirements
+- **No persistent tracking**: Users are never tracked across websites
+- **Privacy-focused analytics**: Umami analytics is self-hosted and GDPR/PECR compliant
+- **No third-party tracking**: No Google Analytics or similar tracking services
+- **Cookie-free analytics**: Umami does not use cookies or similar technologies
+
+## Cookie Consent Management
+
+The portal includes an optional GDPR-compliant cookie consent banner and privacy preference center. This feature can be enabled or disabled via configuration.
+
+### Configuration
+
+In `app.config.js`:
+
+```javascript
+module.exports = {
+  // Enable/disable the privacy preference center
+  privacyPreferenceCenter:
+    process.env.NEXT_PUBLIC_PRIVACY_PREFERENCE_CENTER || 'false',
+  
+  // Default privacy policy to display
+  defaultPrivacyPolicySlug: '/privacy/en',
+}
+```
+
+### GDPR Content Configuration
+
+The consent banner content is defined in `content/gdpr.json`:
+
+```json
+{
+  "title": "Note on the use of cookies",
+  "text": "We use technically essential web storage on this website...",
+  "close": "Acknowledge",
+  "accept": "Accept all",
+  "reject": "Only essential",
+  "configure": "Customize",
+  "optionalCookies": []
+}
+```
+
+<Note>
+The `optionalCookies` array can be populated with cookie definitions that require user consent. Each cookie should include `title`, `desc`, and `cookieName` properties.
+</Note>
+
+## Cookie Consent Context
+
+The portal provides a React Context for managing cookie consent throughout the application.
+
+### Using the Consent Context
+
+The `useConsent()` hook provides access to consent management:
+
+```tsx
+import { useConsent, CookieConsentStatus } from '@context/CookieConsent'
+
+function MyComponent() {
+  const { 
+    cookies,              // Array of optional cookies
+    cookieConsentStatus,  // Current consent status for each cookie
+    setConsentStatus,     // Function to update consent
+    resetConsentStatus    // Function to reset all consent
+  } = useConsent()
+
+  // Check if a specific cookie is approved
+  const analyticsConsent = cookieConsentStatus['AnalyticsCookieConsent']
+  
+  if (analyticsConsent === CookieConsentStatus.APPROVED) {
+    // Initialize analytics or other services
+  }
+
+  return (
+    <div>
+      {/* Your component content */}
+    </div>
+  )
+}
+```
+
+### Consent Status Values
+
+The consent system uses three status values:
+
+```typescript
+enum CookieConsentStatus {
+  NOT_AVAILABLE = -1,  // Consent not yet given
+  APPROVED = 0,        // User approved the cookie
+  REJECTED = 1         // User rejected the cookie
+}
+```
+
+### Managing Consent Programmatically
+
+```tsx
+import { useConsent, CookieConsentStatus } from '@context/CookieConsent'
+
+function CookieSettings() {
+  const { setConsentStatus, resetConsentStatus } = useConsent()
+
+  // Approve a specific cookie
+  const handleApprove = () => {
+    setConsentStatus('AnalyticsCookieConsent', CookieConsentStatus.APPROVED)
+  }
+
+  // Reject a specific cookie
+  const handleReject = () => {
+    setConsentStatus('AnalyticsCookieConsent', CookieConsentStatus.REJECTED)
+  }
+
+  // Reset all consents
+  const handleReset = () => {
+    resetConsentStatus(CookieConsentStatus.NOT_AVAILABLE)
+  }
+
+  return (
+    <div>
+      <button onClick={handleApprove}>Accept Analytics</button>
+      <button onClick={handleReject}>Reject Analytics</button>
+      <button onClick={handleReset}>Reset All</button>
+    </div>
+  )
+}
+```
+
+## Implementing Custom Cookie Logic
+
+The consent context in `src/@context/CookieConsent.tsx` includes handlers for accept and reject actions:
+
+```tsx
+function handleAccept(cookieName: string) {
+  setCookie(cookieName, true)
+  switch (cookieName) {
+    case 'AnalyticsCookieConsent':
+      // Initialize your analytics service
+      // Example: ReactGA.initialize(analyticsId)
+      break
+    default:
+      break
+  }
+}
+
+function handleReject(cookieName: string) {
+  setCookie(cookieName, false)
+  switch (cookieName) {
+    case 'AnalyticsCookieConsent':
+      // Disable analytics or remove tracking
+      break
+    default:
+      break
+  }
+}
+```
+
+<Warning>
+When implementing custom cookie logic, ensure you:
+- Only activate services after user consent is granted
+- Properly clean up or disable services when consent is rejected
+- Respect user preferences across all portal sessions
+</Warning>
+
+## GDPR Metadata Hook
+
+The `useGdprMetadata()` hook provides access to GDPR configuration:
+
+```tsx
+import { useGdprMetadata } from '@hooks/useGdprMetadata'
+
+function CookieBanner() {
+  const gdprData = useGdprMetadata()
+  
+  return (
+    <div>
+      <h3>{gdprData.title}</h3>
+      <p>{gdprData.text}</p>
+      <button>{gdprData.accept}</button>
+      <button>{gdprData.reject}</button>
+      <button>{gdprData.configure}</button>
+    </div>
+  )
+}
+```
+
+## Personal Data Processing
+
+The portal processes minimal personal data in accordance with GDPR:
+
+### Data Collected
+
+1. **IP Address**: src/@context/CookieConsent.tsx:64
+   - Purpose: Technical requirement for portal communication
+   - Legal basis: Legitimate interest (Art. 6(1)(f) GDPR)
+   - Retention: Only as long as needed for service provision
+
+2. **Email Address** (if you contact support):
+   - Purpose: Responding to inquiries
+   - Legal basis: Legitimate interest (Art. 6(1)(f) GDPR)
+   - Retention: As long as needed to process inquiries
+
+<Warning>
+Metadata and Service Offerings published on the portal **must not contain Personal Data**. The Customer is solely responsible for ensuring compliance with this requirement.
+</Warning>
+
+## User Rights Under GDPR
+
+Users have the following rights regarding their personal data:
+
+- **Right of access** (Art. 15 GDPR): Confirm what personal data is processed
+- **Right to rectification** (Art. 16 GDPR): Correct inaccurate personal data
+- **Right to erasure** (Art. 17 GDPR): Request deletion of personal data
+- **Right to restriction** (Art. 18 GDPR): Restrict processing under certain conditions
+- **Right to data portability** (Art. 20 GDPR): Receive data in machine-readable format
+- **Right to object** (Art. 21 GDPR): Object to processing based on legitimate interests
+- **Right to lodge a complaint** (Art. 77 GDPR): File a complaint with supervisory authority
+
+## Data Controllers and Processors
+
+**Controller:**
+- Universitat de Lleida (UdL)
+- Víctor Siurana, 1, 25003 Lleida, Spain
+- Email: agrospai@udl.cat
+
+**Data Protection Officer:**
+- Email: dpd@udl.cat
+
+## Cross-Border Data Transfer
+
+Backend components managed by deltaDAO are hosted on:
+- **Exoscale** servers in Frankfurt, Germany
+- **OVH Cloud** servers in Germany, France, and Poland
+
+Both providers operate under Data Processing Agreements (DPA) ensuring GDPR compliance.
+
+## Best Practices
+
+1. **Enable privacy preference center** only if you use optional cookies
+2. **Customize gdpr.json** with clear, user-friendly text
+3. **Implement consent checks** before activating any tracking services
+4. **Respect consent across sessions** by properly storing and retrieving preferences
+5. **Provide easy access** to privacy settings throughout the portal
+6. **Never store personal data** in metadata or on-chain data
+
+## Related Documentation
+
+- [Privacy Policy Management](/compliance/privacy-policies)
+- [Terms and Conditions](/compliance/terms-conditions)
+- [Gaia-X Compliance](/compliance/gaia-x)

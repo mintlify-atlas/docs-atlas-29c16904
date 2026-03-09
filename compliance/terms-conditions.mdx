@@ -1,0 +1,395 @@
+---
+title: Terms and Conditions
+description: Learn about the Terms and Conditions framework for the AgrospAI Data Space Portal and how to configure them for your deployment.
+---
+
+## Overview
+
+The AgrospAI Data Space Portal operates under comprehensive Terms and Conditions that govern the relationship between the portal operator (Universitat de Lleida) and customers who publish or consume data services.
+
+## Configuration
+
+Set the default Terms and Conditions URL in `app.config.js`:
+
+```javascript
+module.exports = {
+  // Default terms to be used for service offerings
+  defaultTermsAndConditionsUrl: 'https://portal.agrospai.udl.cat/terms',
+}
+```
+
+<Note>
+Users must accept the Terms and Conditions by actively selecting a checkbox before they can publish or consume Service Offerings on the portal.
+</Note>
+
+## Key Definitions
+
+The Terms and Conditions define important concepts:
+
+### Core Concepts
+
+- **Data Portal**: A portal including an API-connector that enables discovery, consumption, and publication of Service Offerings
+- **Service Offerings**: Service offers relating to data utilization (access, organization, allocation, traceability, security)
+- **Service Offering Token**: A token enabling use of a Service Offering and creating an audit trail via blockchain
+- **Customer**: Any legal entity that creates, uses, or accesses the Data Portal
+- **Publisher**: Any Customer that provides Service Offerings
+- **Data Buyer**: Any Customer that acquires Service Offering Tokens
+
+### Technical Definitions
+
+- **EVM Compatible Blockchain**: Blockchain or distributed ledger technology compatible with Ethereum Virtual Machine
+- **Gas Fee**: Transaction fee required by EVM Compatible Blockchains for processing
+- **Access Controllers**: Infrastructure components managing access to Data
+- **Customer Account**: Functionality providing permission for Consumption and Publication via SSI/DID and Verifiable Credentials
+
+## Registration and Access
+
+From the Terms and Conditions:
+
+```markdown
+## 2. Registration, Access to and Use of the Data Portal
+
+**2.1** The use of the Data Portal requires registration. The Customer 
+must complete the accreditation process and provide all specified 
+information and documents.
+
+Upon acceptance of the Terms by actively selecting the checkbox, an 
+Agreement is concluded which entitles the Customer to Consumption and 
+Publication of Service Offerings.
+```
+
+### Implementation
+
+During the publish flow, users must accept terms:
+
+```tsx
+import { useMarketMetadata } from '@context/MarketMetadata'
+
+function PublishForm() {
+  const { appConfig } = useMarketMetadata()
+  const [termsAccepted, setTermsAccepted] = useState(false)
+
+  return (
+    <form>
+      {/* ... other fields ... */}
+      
+      <label>
+        <input 
+          type="checkbox" 
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+          required
+        />
+        I accept the{' '}
+        <a 
+          href={appConfig.defaultTermsAndConditionsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Terms and Conditions
+        </a>
+      </label>
+      
+      <button type="submit" disabled={!termsAccepted}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+## Customer Responsibilities
+
+The Terms outline key customer obligations:
+
+### 1. Account Responsibility
+
+```markdown
+**3.1** The Customer is responsible for all activities undertaken from 
+its Customer Account, regardless of whether authorized by the Customer.
+```
+
+### 2. Legal Compliance
+
+```markdown
+**3.2** The Customer will ensure that published Service Offerings will 
+not violate any Policies or applicable law.
+
+**The Customer will not provide Personal Data in the metadata and 
+Service Offering.**
+```
+
+<Warning>
+**Critical Requirement**: Customers must NOT provide Personal Data in metadata or Service Offerings. This is a fundamental compliance requirement.
+</Warning>
+
+### 3. Third-Party Compliance
+
+```markdown
+**3.3** The Customer will ensure that all third parties comply with 
+obligations under this Agreement.
+```
+
+### 4. Account Security
+
+```markdown
+**3.4** UdL does not store or have access to any sensitive account 
+information including keys. The Customer is responsible for the 
+availability and maintenance of any information related to the 
+Customer Account.
+```
+
+## Fees and Payment
+
+The portal operates on blockchain-based transactions:
+
+```markdown
+## 4. Fees and Payment
+
+**4.1** Publishing or consuming Service Offerings (including generation 
+and purchase of Service Offering Tokens) is conducted solely through 
+EVM Compatible Blockchains via compatible Web3 wallets.
+
+UdL has no insight into or control over these activities, nor the 
+ability to reverse any transaction.
+
+**4.2** EVM Compatible Blockchains require payment of a Gas Fee for 
+every transaction. The Customer will need to pay a Gas Fee for each 
+transaction via the Data Portal.
+```
+
+<Note>
+Users need an appropriately funded Web3 wallet to perform any transactions on the portal.
+</Note>
+
+## Service Lifecycle Management
+
+Service Offerings have defined lifecycle states:
+
+```markdown
+## 6. Service Lifecycle Management
+
+Service Offerings are characterized with a Lifecycle State:
+- "active" (default for new publications)
+- "end-of-life" (terminal state)
+- "deprecated" (terminal state)
+- "revoked" (terminal state)
+- "disabled"
+- "unlisted"
+
+Lifecycle State affects how the Service Offering is displayed and what 
+actions are permitted.
+```
+
+### Implementing Lifecycle States
+
+```typescript
+type LifecycleState = 
+  | 'active'
+  | 'end-of-life'
+  | 'deprecated'
+  | 'revoked'
+  | 'disabled'
+  | 'unlisted'
+
+interface ServiceOffering {
+  // ... other properties
+  lifecycleState: LifecycleState
+}
+
+function getLifecycleStateDisplay(state: LifecycleState) {
+  const terminalStates = ['end-of-life', 'deprecated', 'revoked']
+  const isTerminal = terminalStates.includes(state)
+  
+  return {
+    state,
+    isTerminal,
+    canTransition: !isTerminal
+  }
+}
+```
+
+## Security and Data Protection
+
+Key security provisions:
+
+```markdown
+## 7. Security and Data Protection
+
+**7.2** Data is always stored off-chain. UdL has no control over this 
+Data. Ensuring confidentiality, integrity and availability is the sole 
+responsibility of the Customer.
+
+**Metadata and Service Offerings must not contain Personal Data.**
+
+**7.3** The Customer's public key on the EVM Compatible Blockchain is 
+publicly visible whenever the Customer engages in a transaction.
+```
+
+<Warning>
+Blockchain transactions are publicly visible. Users should understand that their public key will be visible in transaction records.
+</Warning>
+
+```markdown
+**7.4** UdL neither owns nor controls the EVM Compatible Blockchains, 
+Web3 wallets, or other third-party tools. UdL is not liable for acts 
+or omissions of third parties.
+
+**7.5** No method of transmission over the Internet is 100% secure. 
+While UdL strives to use commercially acceptable means to protect 
+Personal Data, absolute security cannot be guaranteed.
+```
+
+## Suspension Rights
+
+The portal operator may suspend access under certain conditions:
+
+```markdown
+## 5. Suspension
+
+**5.1** UdL may suspend access immediately with no prior notice if:
+- Use poses a security risk
+- Could adversely impact systems or other users
+- Could subject UdL or third parties to liability
+- Could be fraudulent
+- Customer is in breach of essential obligations
+- Customer is subject to bankruptcy or similar proceedings
+```
+
+## Intellectual Property Rights
+
+Clear separation of rights:
+
+```markdown
+## 9. Intellectual Property Rights
+
+**9.1** UdL obtains no rights from the Customer regarding published Data.
+
+**9.2** The Customer represents and warrants:
+- Customer owns all rights in published Data
+- Customer will not provide content that infringes third party rights
+
+**9.3** UdL grants the Customer a limited, revocable, non-exclusive, 
+non-sublicensable, non-transferable license to use the Data Portal.
+```
+
+## Liability Limitations
+
+The Terms include comprehensive liability provisions:
+
+```markdown
+## 11. Liability
+
+**11.1** UdL bears unlimited liability for intentional acts and gross 
+negligence but only limited liability for slight negligence regarding 
+material obligations ("cardinal obligations").
+
+**11.3** UdL assumes no liability for losses of Data or Service 
+Offerings where such loss would have been unavoidable.
+
+**11.4** UdL assumes no liability for legal consequences arising from 
+Publication or Consumption of Service Offerings, including claims by 
+third parties regarding the Data.
+
+**11.8** UdL has no liability for claims or damages arising from 
+transactions via Web3 wallets or Smart Contracts.
+```
+
+<Note>
+The portal operates as a decentralized infrastructure. The operator provides the platform but does not control or verify the content of Service Offerings.
+</Note>
+
+## Term and Termination
+
+```markdown
+## 8. Term and Termination
+
+**8.1** This Agreement is concluded for an unlimited term.
+
+**8.2** Either party may terminate upon one month's notice to the end 
+of any month.
+
+**8.3** Each party may terminate for good cause without notice period.
+
+**8.5** Upon termination, access to the Data Portal will be suspended, 
+including ability to publish, consume, or access Service Offerings. 
+No refunds will be provided.
+```
+
+## Modifications
+
+The Terms can be modified with proper notice:
+
+```markdown
+## 12. Modifications
+
+**12.1** UdL may modify any Service at any time. Modifications affecting 
+essential functionality will be notified one month prior to becoming 
+effective.
+
+**12.2** UdL may amend the Agreement with reasonable notice. Amendments 
+will be notified at least one month before taking effect.
+
+The Customer is deemed to have agreed if they do not reject the 
+amendments in writing before they take effect.
+```
+
+## Governing Law and Jurisdiction
+
+```markdown
+## 13. Miscellaneous
+
+**13.9** This Agreement shall be governed by the laws of Spain. The 
+application of the uniform UN Convention on Contracts for the 
+International Sale of Goods (CISG) shall be excluded.
+
+**13.10** Exclusive place of jurisdiction for all disputes shall be 
+the registered office of UdL, unless another mandatory exclusive 
+jurisdiction exists.
+```
+
+## Best Practices
+
+1. **Make terms easily accessible** - Link from footer, registration, and publish flows
+2. **Require explicit acceptance** - Use checkboxes, not implied consent
+3. **Version your terms** - Keep dated versions for audit trails
+4. **Notify of changes** - Give users adequate notice before changes take effect
+5. **Use clear language** - Make terms understandable for non-lawyers where possible
+6. **Highlight key restrictions** - Especially the "no personal data" requirement
+7. **Provide translations** - If serving international audiences
+8. **Document acceptance** - Log when and how users accepted terms
+
+## Gaia-X Terms Integration
+
+Service Offerings can reference Gaia-X Terms and Conditions:
+
+```typescript
+import { GaiaXTermsAndConditions2210 } from 'src/@types/gaia-x/2210/TermsAndConditions'
+
+interface ServiceOfferingMetadata {
+  // ... other fields
+  gaiaXInformation: {
+    termsAndConditions: GaiaXTermsAndConditions2210[]
+    containsPII: boolean
+    PIIInformation?: GaiaXPIIInformation2210[]
+  }
+}
+
+// Example
+const serviceOffering: ServiceOfferingMetadata = {
+  gaiaXInformation: {
+    termsAndConditions: [
+      { url: 'https://example.com/gaia-x-terms' }
+    ],
+    containsPII: false
+  }
+}
+```
+
+See [Gaia-X Compliance](/compliance/gaia-x) for more details on Gaia-X integration.
+
+## Related Documentation
+
+- [GDPR Compliance](/compliance/gdpr)
+- [Privacy Policy Management](/compliance/privacy-policies)
+- [Gaia-X Compliance](/compliance/gaia-x)

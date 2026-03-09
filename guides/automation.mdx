@@ -1,0 +1,806 @@
+---
+title: Automation Wallet and Features
+description: Set up and use automation wallet for streamlined operations without manual transaction confirmations
+---
+
+The automation wallet feature enables programmatic interactions with the AgrospAI Data Space Portal, eliminating the need for manual transaction confirmations. This is ideal for batch operations, testing, and automated workflows.
+
+## What is Automation Wallet?
+
+Automation wallet is a locally-managed wallet that:
+
+- **Eliminates manual confirmations**: Transactions execute automatically
+- **Enables batch operations**: Process multiple assets efficiently
+- **Supports background tasks**: Run operations without user interaction
+- **Maintains security**: Private keys encrypted and stored locally
+- **Operates independently**: Separate from your primary wallet
+
+<Warning>
+Automation wallet stores encrypted private keys in browser local storage. Only enable this feature on secure, personal devices.
+</Warning>
+
+## Use Cases
+
+- **Bulk Publishing**: Upload multiple datasets without repeated confirmations
+- **Automated Purchasing**: Acquire assets programmatically
+- **Compute Jobs**: Submit multiple C2D jobs in sequence
+- **Testing Workflows**: Rapid iteration during development
+- **Data Pipeline Integration**: Automated data marketplace operations
+
+## Setup Process
+
+<Steps>
+
+<Step title="Enable Automation Feature">
+
+Check if automation is enabled in your portal instance:
+
+```tsx
+// Automation must be enabled in app configuration
+const { appConfig } = useMarketMetadata()
+
+if (appConfig.automationConfig.enableAutomation === 'true') {
+  // Automation available
+}
+```
+
+<Note>
+If automation is not visible, contact your portal administrator. This feature may be disabled for security reasons.
+</Note>
+
+**Accessing Automation Settings**
+
+1. Click user menu in header
+2. Select "Settings" or "Preferences"
+3. Navigate to "Automation" section
+4. Click "Enable Automation"
+
+</Step>
+
+<Step title="Create or Import Wallet">
+
+You have two options for automation wallet setup:
+
+### Option 1: Create New Wallet
+
+**Using External Tool (Recommended)**
+
+```bash
+# Using Node.js and ethers.js
+node -e "
+const { Wallet } = require('ethers');
+const wallet = Wallet.createRandom();
+const password = 'YOUR_STRONG_PASSWORD';
+
+wallet.encrypt(password).then(json => {
+  console.log('Save this encrypted JSON:');
+  console.log(json);
+  console.log('\nWallet Address:', wallet.address);
+});
+"
+```
+
+**Using Python**
+
+```python
+from eth_account import Account
+import json
+
+# Create new account
+account = Account.create()
+password = 'YOUR_STRONG_PASSWORD'
+
+# Encrypt private key
+encrypted = account.encrypt(password)
+
+print('Save this encrypted JSON:')
+print(json.dumps(encrypted, indent=2))
+print(f'\nWallet Address: {account.address}')
+```
+
+<Tip>
+Use a strong, unique password for encryption. This password will be required each time you activate the automation wallet.
+</Tip>
+
+### Option 2: Import Existing Wallet
+
+If you have an existing wallet, export it as encrypted JSON:
+
+**From MetaMask**
+1. Open MetaMask
+2. Select account to export
+3. Go to Account Details > Export Private Key
+4. Enter MetaMask password
+5. Copy private key (keep secure!)
+
+**Encrypt Private Key**
+
+```javascript
+const { Wallet } = require('ethers')
+
+const privateKey = 'YOUR_PRIVATE_KEY'
+const password = 'YOUR_STRONG_PASSWORD'
+
+const wallet = new Wallet(privateKey)
+wallet.encrypt(password).then(json => {
+  console.log('Encrypted JSON for portal:')
+  console.log(json)
+})
+```
+
+<Warning>
+Never share your private key. Delete it securely after creating the encrypted JSON. Only the encrypted JSON should be uploaded to the portal.
+</Warning>
+
+</Step>
+
+<Step title="Import to Portal">
+
+Upload your encrypted JSON wallet to the portal:
+
+```tsx
+// Import component in portal
+import Import from '@components/Header/UserPreferences/Automation/Import'
+
+const { importAutomationWallet } = useAutomation()
+
+// Validate and import encrypted JSON
+const success = await importAutomationWallet(encryptedJson)
+```
+
+**Import Process**
+
+1. Click "Import Wallet JSON" button
+2. Paste or upload encrypted JSON file
+3. Portal validates wallet format
+4. Wallet address displayed for verification
+5. Encrypted JSON stored in browser local storage
+
+**Validation**
+
+```tsx
+// Portal verifies JSON structure
+const isValid = ethers.utils.isAddress(
+  ethers.utils.getJsonWalletAddress(encryptedJson)
+)
+
+if (isValid) {
+  setAutomationWalletJSON(encryptedJson)
+  toast.success('Wallet imported successfully')
+} else {
+  toast.error('Invalid wallet JSON')
+}
+```
+
+<Note>
+The encrypted JSON never leaves your browser. It's stored only in local storage and decrypted on-demand with your password.
+</Note>
+
+</Step>
+
+<Step title="Decrypt and Activate">
+
+Decrypt your automation wallet to begin using it:
+
+```tsx
+import Decrypt from '@components/Header/UserPreferences/Automation/Decrypt'
+
+const { decryptAutomationWallet } = useAutomation()
+
+// Decrypt with password
+const success = await decryptAutomationWallet(password)
+```
+
+**Decryption Process**
+
+```tsx
+async function decryptAutomationWallet(password: string) {
+  try {
+    setIsLoading(true)
+    
+    // Decrypt stored JSON
+    const wallet = await ethers.Wallet.fromEncryptedJson(
+      automationWalletJSON,
+      password,
+      (percent) => setDecryptPercentage(percent)
+    )
+    
+    // Load wallet into custom connector
+    await jsonWalletConnector.loadWallet(wallet.privateKey)
+    connect({ connector: jsonWalletConnector })
+    
+    const connectedWallet = jsonWalletConnector.getWallet()
+    setAutoWallet(connectedWallet)
+    
+    toast.success(
+      `Successfully imported wallet ${connectedWallet.address} for automation.`
+    )
+    return true
+  } catch (e) {
+    toast.error('Could not decrypt the automation wallet.')
+    return false
+  } finally {
+    setIsLoading(false)
+  }
+}
+```
+
+**Progress Indicator**
+
+Decryption shows progress:
+- 0-25%: Reading encrypted data
+- 25-75%: Decrypting key material
+- 75-100%: Initializing wallet
+
+</Step>
+
+<Step title="Fund Automation Wallet">
+
+Transfer tokens to your automation wallet:
+
+**Get Wallet Address**
+
+```tsx
+const { autoWalletAddress } = useAutomation()
+
+// Display address for funding
+console.log('Fund this address:', autoWalletAddress)
+```
+
+**Required Tokens**
+
+1. **Native tokens**: For gas fees (ETH, MATIC, etc.)
+2. **Base tokens**: For purchases (OCEAN, USDC, etc.)
+3. **Datatokens**: Optional, for owned assets
+
+**Transfer from Primary Wallet**
+
+```tsx
+// Use MetaMask to send tokens to automation wallet
+// To: <automation_wallet_address>
+// Amount: Sufficient for planned operations
+```
+
+**Balance Monitoring**
+
+```tsx
+const { balance, updateBalance } = useAutomation()
+
+// Balance structure
+interface UserBalance {
+  native: {
+    symbol: string
+    balance: string
+  }
+  approved?: {
+    [tokenAddress: string]: string
+  }
+}
+
+// Manual refresh
+await updateBalance()
+```
+
+**Auto-Refresh**
+
+Balances update automatically every 20 seconds:
+
+```tsx
+const refreshInterval = 20000 // 20 seconds
+
+useEffect(() => {
+  updateBalance()
+  const interval = setInterval(() => updateBalance(), refreshInterval)
+  return () => clearInterval(interval)
+}, [updateBalance])
+```
+
+</Step>
+
+<Step title="Enable Automation Mode">
+
+Activate automation for operations:
+
+```tsx
+const { 
+  isAutomationEnabled, 
+  setIsAutomationEnabled 
+} = useAutomation()
+
+// Enable automation
+setIsAutomationEnabled(true)
+```
+
+**Visual Indicators**
+
+```tsx
+// Automation icon states
+// - Colored background: Automation enabled
+// - Green indicator: Fully funded
+// - Yellow indicator: Partially funded
+// - Red indicator: Insufficient funds
+```
+
+**Toggle Automation**
+
+```tsx
+import AutomationWalletMode from '@components/Header/UserPreferences/AutomationWalletMode'
+
+// Component allows quick enable/disable
+<AutomationWalletMode />
+```
+
+</Step>
+
+</Steps>
+
+## Using Automation Wallet
+
+### Publishing Assets
+
+Publish without manual confirmations:
+
+```tsx
+// Publish component automatically uses automation wallet
+const { autoWallet, isAutomationEnabled } = useAutomation()
+const [accountIdToUse, setAccountIdToUse] = useState<string>(accountId)
+const [signerToUse, setSignerToUse] = useState(signer)
+
+useEffect(() => {
+  if (isAutomationEnabled && autoWallet?.address) {
+    setAccountIdToUse(autoWallet.address)
+    setSignerToUse(autoWallet)
+  } else {
+    setAccountIdToUse(accountId)
+    setSignerToUse(signer)
+  }
+}, [isAutomationEnabled, autoWallet, accountId, signer])
+
+// All publish transactions use automation wallet when enabled
+const { erc721Address, datatokenAddress } = 
+  await createTokensAndPricing(
+    values,
+    accountIdToUse,  // automation wallet address
+    config,
+    nftFactory
+  )
+```
+
+**Benefits**
+- No MetaMask popups
+- Faster publishing
+- Batch uploads possible
+- Consistent gas settings
+
+### Consuming Assets
+
+Purchase and download automatically:
+
+```tsx
+// Download component checks automation status
+const signerToUse = isAutomationEnabled ? autoWallet : signer
+const accountToUse = isAutomationEnabled 
+  ? autoWallet.address 
+  : accountId
+
+// Order asset
+await order(
+  signerToUse,
+  asset,
+  orderPriceAndFees,
+  accountToUse,
+  hasDatatoken
+)
+
+// Download file
+await downloadFile(
+  signerToUse,
+  asset,
+  accountToUse,
+  validOrderTx
+)
+```
+
+### Running Compute Jobs
+
+Submit C2D jobs without interaction:
+
+```tsx
+// Compute component uses automation wallet
+const { autoWallet, isAutomationEnabled } = useAutomation()
+
+const accountId = isAutomationEnabled 
+  ? autoWallet?.address 
+  : address
+
+// Fetch compute jobs including automation wallet's jobs
+const computeJobs = await getComputeJobs(
+  [asset?.chainId],
+  address,
+  asset,
+  cancelToken
+)
+
+if (autoWallet) {
+  const autoComputeJobs = await getComputeJobs(
+    [asset?.chainId],
+    autoWallet?.address,
+    asset,
+    cancelToken
+  )
+  // Merge jobs from both wallets
+  computeJobs.computeJobs.push(...autoComputeJobs.computeJobs)
+}
+```
+
+**Job Management**
+- View jobs from both primary and automation wallets
+- Unified job history
+- Automated job submission
+- No confirmation dialogs
+
+## Monitoring Automation Wallet
+
+### Balance Tracking
+
+```tsx
+const { balance, autoWalletAddress } = useAutomation()
+
+// Display balances
+console.log('Native:', balance.native.balance, balance.native.symbol)
+console.log('Tokens:', balance.approved)
+```
+
+**Funding Indicators**
+
+```tsx
+// Visual feedback based on balance status
+const getFundingStatus = () => {
+  if (nativeBalance > minRequired && hasAllTokens) {
+    return 'green' // Fully funded
+  } else if (nativeBalance > 0) {
+    return 'yellow' // Partially funded
+  } else {
+    return 'red' // Insufficient funds
+  }
+}
+```
+
+### Transaction History
+
+View automation wallet transactions:
+
+1. Navigate to Profile
+2. Select "History" tab
+3. Filter by automation wallet address
+4. View all automated operations
+
+**On Block Explorer**
+
+```tsx
+// View on Etherscan/Polygonscan
+const explorerUrl = `${networkConfig.explorerUri}/address/${autoWalletAddress}`
+```
+
+### Activity Monitoring
+
+Track automation wallet usage:
+
+```tsx
+// Monitor in console (development)
+LoggerInstance.log('[AutomationProvider] Using automation wallet', {
+  address: autoWallet.address,
+  balance: balance.native.balance,
+  network: chain.name
+})
+```
+
+## Security Considerations
+
+### Encryption Security
+
+```tsx
+// Strong encryption used
+const wallet = await ethers.Wallet.fromEncryptedJson(
+  automationWalletJSON,
+  password
+)
+
+// Key derivation parameters (secure defaults)
+// - 262144 iterations
+// - PBKDF2 + AES-128-CTR
+```
+
+### Storage Security
+
+**Local Storage Only**
+- Never transmitted to servers
+- Stored only in browser local storage
+- Cleared when cache is cleared
+- Per-origin isolation
+
+**Session Management**
+
+```tsx
+// Decrypted wallet exists only in memory
+// Re-decryption required after:
+// - Page refresh
+// - Browser restart
+// - Cache clear
+```
+
+### Best Practices
+
+<Warning>
+**Security Guidelines**
+
+1. **Use only on trusted devices**: Personal computer with security software
+2. **Don't use on public/shared computers**: Risk of key exposure
+3. **Limit funds in automation wallet**: Only what's needed for operations
+4. **Use strong passwords**: Minimum 16 characters, mixed case, numbers, symbols
+5. **Regular password rotation**: Change encryption password periodically
+6. **Monitor activity**: Check transaction history regularly
+7. **Separate from main funds**: Don't use primary wallet for automation
+8. **Backup encrypted JSON**: Store securely offline
+9. **Disable when not needed**: Turn off automation between use sessions
+10. **Clear after use**: Remove from browser on shared devices
+</Warning>
+
+## Managing Automation Wallet
+
+### Disabling Automation
+
+Temporarily disable without removing wallet:
+
+```tsx
+const { isAutomationEnabled, setIsAutomationEnabled } = useAutomation()
+
+// Disable automation mode
+setIsAutomationEnabled(false)
+
+// Re-enable when needed
+setIsAutomationEnabled(true)
+```
+
+**Effects of Disabling**
+- Operations revert to primary wallet
+- Manual confirmations required
+- Encrypted JSON remains stored
+- No re-decryption needed to re-enable
+
+### Removing Automation Wallet
+
+Permanently remove from browser:
+
+```tsx
+const { deleteCurrentAutomationWallet } = useAutomation()
+
+// Triggers confirmation modal
+deleteCurrentAutomationWallet()
+```
+
+**Deletion Process**
+
+```tsx
+function removeAutomationWalletAndCleanup() {
+  setIsLoading(true)
+  setIsAutomationEnabled(false)
+  setAutoWallet(undefined)
+  setAutoWalletAddress(undefined)
+  setAutomationWalletJSON(undefined)
+  setBalance(undefined)
+  jsonWalletConnector.disconnect()
+  toast.info('The automation wallet was removed from your machine.')
+  setIsLoading(false)
+}
+```
+
+**Confirmation Modal**
+
+```tsx
+<DeleteAutomationModal
+  hasDeleteRequest={hasDeleteRequest}
+  setHasDeleteRequest={setHasDeleteRequest}
+  disabled={isLoading}
+  onDeleteConfirm={() => removeAutomationWalletAndCleanup()}
+/>
+```
+
+<Note>
+Deleting the automation wallet from the browser does NOT destroy the wallet. You can re-import the same encrypted JSON later to restore access.
+</Note>
+
+### Changing Password
+
+To change encryption password:
+
+1. Export current encrypted JSON
+2. Decrypt with old password (externally)
+3. Re-encrypt with new password
+4. Delete old wallet from portal
+5. Import newly encrypted JSON
+
+```javascript
+// External re-encryption
+const { Wallet } = require('ethers')
+
+const oldJson = 'OLD_ENCRYPTED_JSON'
+const oldPassword = 'OLD_PASSWORD'
+const newPassword = 'NEW_STRONG_PASSWORD'
+
+Wallet.fromEncryptedJson(oldJson, oldPassword).then(wallet => {
+  wallet.encrypt(newPassword).then(newJson => {
+    console.log('New encrypted JSON:')
+    console.log(newJson)
+  })
+})
+```
+
+## Troubleshooting
+
+### Import Failures
+
+**"Invalid wallet JSON"**
+- Verify JSON format is correct
+- Ensure complete JSON (no truncation)
+- Check for special characters
+- Try re-exporting encrypted JSON
+
+**"Could not import wallet"**
+```tsx
+if (!ethers.utils.isAddress(
+  ethers.utils.getJsonWalletAddress(encryptedJson)
+)) {
+  // Invalid address in JSON
+}
+```
+Solution: Verify JSON contains valid Ethereum address
+
+### Decryption Issues
+
+**"Could not decrypt"**
+- Incorrect password
+- Corrupted encrypted JSON
+- Unsupported encryption version
+
+**Slow decryption**
+- Normal for high iteration counts
+- Wait for progress indicator to complete
+- Don't close browser during decryption
+
+**Progress tracking**
+```tsx
+const [decryptPercentage, setDecryptPercentage] = useState<number>()
+
+await ethers.Wallet.fromEncryptedJson(
+  automationWalletJSON,
+  password,
+  (percent) => setDecryptPercentage(percent * 100)
+)
+```
+
+### Operation Failures
+
+**"Insufficient funds"**
+- Check automation wallet balance
+- Transfer more tokens to automation wallet
+- Verify correct network
+
+**"Wrong network"**
+```tsx
+useEffect(() => {
+  if (isAutomationEnabled && chain?.id) {
+    LoggerInstance.log(
+      `[AutomationProvider] Network changed to: ${chain.name}`
+    )
+    setAutoWallet(jsonWalletConnector.getWallet())
+  }
+}, [chain])
+```
+
+Solution: Switch to correct network in settings
+
+**Transaction nonce errors**
+- Multiple rapid transactions
+- Provider connection issues
+- Retry operation after a moment
+
+### Storage Issues
+
+**Wallet not persisting**
+- Browser blocking local storage
+- Private/incognito mode
+- Storage quota exceeded
+- Browser security settings
+
+Solution:
+```tsx
+// Check local storage availability
+if (typeof localStorage !== 'undefined') {
+  // Storage available
+} else {
+  // Enable local storage in browser settings
+}
+```
+
+## Advanced Usage
+
+### Custom Connector Implementation
+
+```typescript
+// EthersWalletConnector.ts
+import { Wallet, ethers } from 'ethers'
+import { Connector } from 'wagmi'
+
+export const JSON_WALLET_CONNECTOR_ID = 'jsonWalletConnector'
+
+export class EthersWalletConnector extends Connector {
+  readonly id = JSON_WALLET_CONNECTOR_ID
+  private wallet: Wallet
+
+  async loadWallet(privateKey: string) {
+    this.wallet = new ethers.Wallet(privateKey)
+  }
+
+  getWallet(): Wallet {
+    return this.wallet
+  }
+
+  async connect() {
+    return {
+      account: this.wallet.address,
+      chain: { id: await this.wallet.getChainId() },
+      provider: this.wallet.provider
+    }
+  }
+}
+```
+
+### Programmatic Integration
+
+Integrate automation in custom scripts:
+
+```typescript
+import { useAutomation } from '@context/Automation/AutomationProvider'
+
+function MyCustomComponent() {
+  const {
+    autoWallet,
+    isAutomationEnabled,
+    balance,
+    importAutomationWallet,
+    decryptAutomationWallet
+  } = useAutomation()
+
+  async function setupAutomation() {
+    // 1. Import wallet
+    const imported = await importAutomationWallet(encryptedJson)
+    
+    // 2. Decrypt wallet
+    const decrypted = await decryptAutomationWallet(password)
+    
+    // 3. Enable automation
+    setIsAutomationEnabled(true)
+    
+    // 4. Use in operations
+    if (isAutomationEnabled && autoWallet) {
+      // Automated operations
+    }
+  }
+}
+```
+
+## Related Resources
+
+- [Wallet Setup](/guides/wallet-setup)
+- [Publishing Assets](/guides/publishing-assets)
+- [Consuming Assets](/guides/consuming-assets)
+- [Compute-to-Data Jobs](/guides/compute-jobs)
+
+## Code References
+
+Key implementation files:
+- Automation provider: `src/@context/Automation/AutomationProvider.tsx:54-257`
+- Custom connector: `src/@utils/wallet/EthersWalletConnector.ts`
+- Import component: `src/components/@shared/Onboarding/Steps/ImportWallet.tsx`
+- State display: `src/components/@shared/Onboarding/Steps/AutomationWalletState.tsx`

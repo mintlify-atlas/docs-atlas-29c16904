@@ -1,0 +1,441 @@
+---
+title: Hosting Options
+description: Deploy the AgrospAI Data Space Portal to various hosting platforms
+---
+
+The portal supports deployment to multiple hosting platforms. Each platform has different features, configurations, and pricing models.
+
+## Platform Overview
+
+<CardGroup cols={3}>
+  <Card title="Netlify" icon="netlify">
+    Automatic deployments with preview URLs
+  </Card>
+  <Card title="Vercel" icon="triangle">
+    Optimized for Next.js applications
+  </Card>
+  <Card title="AWS S3" icon="aws">
+    Static hosting with CloudFront CDN
+  </Card>
+</CardGroup>
+
+## Netlify Deployment
+
+Netlify provides automatic deployments from Git with built-in CI/CD.
+
+### Configuration
+
+The repository includes a `netlify.toml` configuration file:
+
+```toml netlify.toml
+[[headers]]
+  for = "/_next/image/*"
+
+  [headers.values]
+    Content-Security-Policy= "upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-XSS-Protection = "1; mode=block"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy= "accelerometer=(self), ambient-light-sensor=(self), ..."
+```
+
+This configuration applies security headers to Next.js image optimization requests.
+
+### Deployment Steps
+
+<Steps>
+  <Step title="Connect Repository">
+    1. Log in to [Netlify](https://app.netlify.com)
+    2. Click "Add new site" → "Import an existing project"
+    3. Connect your Git provider (GitHub, GitLab, Bitbucket)
+    4. Select the portal repository
+  </Step>
+
+  <Step title="Configure Build Settings">
+    Set the following build configuration:
+
+    - **Build command**: `npm run build`
+    - **Publish directory**: `.next`
+    - **Node version**: `22`
+  </Step>
+
+  <Step title="Add Environment Variables">
+    In Netlify dashboard, go to Site settings → Environment variables:
+
+    ```bash
+    NEXT_PUBLIC_INFURA_PROJECT_ID=your_infura_id
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_wc_id
+    NEXT_PUBLIC_METADATACACHE_URI=https://aquarius.pontus-x.eu
+    NEXT_PUBLIC_MARKET_FEE_ADDRESS=0x...
+    AGROPORTAL_API_KEY=your_api_key
+    NEXT_TELEMETRY_DISABLED=1
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy site". Netlify will:
+    - Install dependencies
+    - Build the application
+    - Deploy to CDN
+    - Provide a preview URL
+  </Step>
+</Steps>
+
+### Netlify Features
+
+<AccordionGroup>
+  <Accordion title="Automatic Deployments">
+    Every push to your main branch triggers a new deployment automatically.
+  </Accordion>
+
+  <Accordion title="Deploy Previews">
+    Pull requests get unique preview URLs for testing before merging.
+  </Accordion>
+
+  <Accordion title="Branch Deploys">
+    Deploy specific branches for staging or feature testing.
+  </Accordion>
+
+  <Accordion title="Custom Domains">
+    Add custom domains with automatic HTTPS certificates.
+  </Accordion>
+</AccordionGroup>
+
+### Netlify CLI Deployment
+
+Deploy from command line:
+
+```bash
+# Install Netlify CLI
+npm install -g netlify-cli
+
+# Login to Netlify
+netlify login
+
+# Build and deploy
+npm run build
+netlify deploy --prod
+```
+
+## Vercel Deployment
+
+Vercel is optimized for Next.js and offers zero-configuration deployment.
+
+### Deployment Steps
+
+<Steps>
+  <Step title="Import Project">
+    1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+    2. Click "Add New" → "Project"
+    3. Import your Git repository
+  </Step>
+
+  <Step title="Configure Project">
+    Vercel auto-detects Next.js configuration:
+
+    - **Framework Preset**: Next.js
+    - **Build Command**: `npm run build` (auto-detected)
+    - **Output Directory**: `.next` (auto-detected)
+    - **Install Command**: `npm install`
+  </Step>
+
+  <Step title="Set Environment Variables">
+    Add environment variables in project settings:
+
+    ```bash
+    NEXT_PUBLIC_INFURA_PROJECT_ID=your_infura_id
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_wc_id
+    NEXT_PUBLIC_METADATACACHE_URI=https://aquarius.pontus-x.eu
+    AGROPORTAL_API_KEY=your_api_key
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy". Vercel will build and deploy your application with:
+    - Automatic HTTPS
+    - Global CDN
+    - Edge network optimization
+  </Step>
+</Steps>
+
+### Vercel CLI Deployment
+
+<CodeGroup>
+```bash Install CLI
+npm install -g vercel
+```
+
+```bash Deploy
+# Login
+vercel login
+
+# Deploy to preview
+vercel
+
+# Deploy to production
+vercel --prod
+```
+</CodeGroup>
+
+### Vercel Features
+
+- **Edge Functions**: Run server-side code at the edge
+- **Image Optimization**: Automatic image optimization
+- **Analytics**: Built-in performance analytics
+- **Preview Deployments**: Unique URL for every commit
+
+## AWS S3 + CloudFront
+
+Deploy as a static site with AWS infrastructure.
+
+### Prerequisites
+
+- AWS account
+- AWS CLI configured
+- S3 bucket created
+- CloudFront distribution (optional)
+
+### Static Export Build
+
+<Steps>
+  <Step title="Build Static Export">
+    Generate static HTML files:
+
+    ```bash
+    npm run build:static
+    ```
+
+    This creates a `public/` directory with exported HTML.
+  </Step>
+
+  <Step title="Create S3 Bucket">
+    Create and configure S3 bucket:
+
+    ```bash
+    aws s3 mb s3://agrospai-portal
+    aws s3 website s3://agrospai-portal \
+      --index-document index.html \
+      --error-document 404.html
+    ```
+  </Step>
+
+  <Step title="Configure Bucket Policy">
+    Add public read policy:
+
+    ```json bucket-policy.json
+    {
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Sid": "PublicReadGetObject",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::agrospai-portal/*"
+      }]
+    }
+    ```
+
+    Apply policy:
+
+    ```bash
+    aws s3api put-bucket-policy \
+      --bucket agrospai-portal \
+      --policy file://bucket-policy.json
+    ```
+  </Step>
+
+  <Step title="Upload Files">
+    Sync the public directory:
+
+    ```bash
+    aws s3 sync public/ s3://agrospai-portal \
+      --delete \
+      --cache-control "public, max-age=31536000"
+    ```
+  </Step>
+</Steps>
+
+### CloudFront CDN Setup
+
+Add CloudFront for global CDN distribution:
+
+<Steps>
+  <Step title="Create Distribution">
+    ```bash
+    aws cloudfront create-distribution \
+      --origin-domain-name agrospai-portal.s3.amazonaws.com \
+      --default-root-object index.html
+    ```
+  </Step>
+
+  <Step title="Configure Custom Error Pages">
+    Map 404 errors to index.html for client-side routing:
+
+    ```bash
+    aws cloudfront update-distribution \
+      --id YOUR_DISTRIBUTION_ID \
+      --custom-error-responses \
+        "ErrorCode=404,ResponsePagePath=/index.html,ResponseCode=200"
+    ```
+  </Step>
+
+  <Step title="Add Custom Domain">
+    1. Request SSL certificate in ACM
+    2. Add custom domain to distribution
+    3. Update DNS records to point to CloudFront
+  </Step>
+</Steps>
+
+### S3 Deployment Script
+
+Automate deployment with a script:
+
+```bash deploy-s3.sh
+#!/bin/bash
+
+BUCKET_NAME="agrospai-portal"
+DISTRIBUTION_ID="YOUR_CLOUDFRONT_ID"
+
+echo "Building static export..."
+npm run build:static
+
+echo "Uploading to S3..."
+aws s3 sync public/ s3://$BUCKET_NAME \
+  --delete \
+  --cache-control "public, max-age=31536000" \
+  --exclude "*.html" \
+  --exclude "sw.js"
+
+aws s3 sync public/ s3://$BUCKET_NAME \
+  --delete \
+  --cache-control "public, max-age=0, must-revalidate" \
+  --exclude "*" \
+  --include "*.html" \
+  --include "sw.js"
+
+echo "Invalidating CloudFront cache..."
+aws cloudfront create-invalidation \
+  --distribution-id $DISTRIBUTION_ID \
+  --paths "/*"
+
+echo "Deployment complete!"
+```
+
+Make executable and run:
+
+```bash
+chmod +x deploy-s3.sh
+./deploy-s3.sh
+```
+
+## Deployment Comparison
+
+| Feature | Netlify | Vercel | AWS S3 |
+|---------|---------|--------|--------|
+| **Setup Complexity** | Easy | Easy | Moderate |
+| **Next.js Support** | Good | Excellent | Limited (static only) |
+| **Auto Deploy** | Yes | Yes | No (CI/CD needed) |
+| **Preview URLs** | Yes | Yes | No |
+| **Custom Domains** | Yes | Yes | Yes (via CloudFront) |
+| **HTTPS** | Automatic | Automatic | Via ACM |
+| **CDN** | Included | Included | CloudFront (separate) |
+| **Server Functions** | Yes | Yes | No |
+| **Free Tier** | Generous | Generous | Pay per use |
+| **Enterprise Support** | Available | Available | Available |
+
+## Environment Variables Per Platform
+
+<Warning>
+Remember: `NEXT_PUBLIC_*` variables must be set at **build time** on all platforms.
+</Warning>
+
+<Tabs>
+  <Tab title="Netlify">
+    Set in: Site settings → Environment variables
+    
+    Variables are available during build and runtime.
+  </Tab>
+  
+  <Tab title="Vercel">
+    Set in: Project Settings → Environment Variables
+    
+    Can be scoped to Production, Preview, or Development.
+  </Tab>
+  
+  <Tab title="AWS">
+    Set as environment variables in your CI/CD pipeline or build script.
+    
+    Must be present when running `npm run build`.
+  </Tab>
+</Tabs>
+
+## Continuous Deployment
+
+All platforms support automated deployments:
+
+### GitHub Actions Example
+
+```yaml .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build
+        env:
+          NEXT_PUBLIC_INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
+          NEXT_PUBLIC_METADATACACHE_URI: https://aquarius.pontus-x.eu
+          AGROPORTAL_API_KEY: ${{ secrets.AGROPORTAL_API_KEY }}
+        run: npm run build
+        
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+```
+
+## Monitoring and Analytics
+
+After deployment, set up monitoring:
+
+- **Netlify Analytics**: Built-in traffic and performance metrics
+- **Vercel Analytics**: Web Vitals and performance insights
+- **AWS CloudWatch**: S3 and CloudFront metrics and logs
+- **Third-party**: Google Analytics, Plausible (configured in `app.config.js`)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Production Build" icon="hammer" href="/deployment/production-build">
+    Optimize your build process
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy with containers
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/environment-variables">
+    Configure environment settings
+  </Card>
+  <Card title="Network Setup" icon="network-wired" href="/configuration/network-setup">
+    Configure network and chain settings
+  </Card>
+</CardGroup>

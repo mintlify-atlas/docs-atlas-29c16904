@@ -1,0 +1,323 @@
+---
+title: Privacy Policy Management
+description: Learn how to configure and manage privacy policies in the AgrospAI Data Space Portal.
+---
+
+## Overview
+
+The AgrospAI Data Space Portal includes a comprehensive privacy policy management system that supports multiple languages and provides clear information about data processing activities.
+
+## Privacy Policy Configuration
+
+Privacy policies are configured through the `content/pages/privacy/` directory.
+
+### Policy Configuration File
+
+The `policies.json` file defines available privacy policy languages:
+
+```json
+{
+  "policies": [
+    {
+      "policyLangTag": "en",
+      "language": "English",
+      "date": "2025-06-25",
+      "params": {
+        "languageLabel": "Language",
+        "languageHelp": "Language of the privacy policy",
+        "updated": "Last updated on",
+        "dateFormat": "MMMM dd, yyyy."
+      }
+    }
+  ],
+  "slug": "/privacy"
+}
+```
+
+### Adding Multiple Languages
+
+To support multiple languages, add entries to the `policies` array:
+
+```json
+{
+  "policies": [
+    {
+      "policyLangTag": "en",
+      "language": "English",
+      "date": "2025-06-25",
+      "params": { /* ... */ }
+    },
+    {
+      "policyLangTag": "es",
+      "language": "Español",
+      "date": "2025-06-25",
+      "params": {
+        "languageLabel": "Idioma",
+        "languageHelp": "Idioma de la política de privacidad",
+        "updated": "Última actualización",
+        "dateFormat": "dd MMMM yyyy."
+      }
+    }
+  ],
+  "slug": "/privacy"
+}
+```
+
+Then create corresponding markdown files: `en.md`, `es.md`, etc.
+
+## Privacy Policy Content
+
+Privacy policies are written in Markdown with frontmatter metadata.
+
+### Example Structure
+
+```markdown
+---
+title: Privacy Policy
+description: This privacy policy informs you about how we process your personal data.
+---
+
+### Table of contents
+
+## 1. Contact Details
+
+[Your content here]
+
+## 2. What's Personal Data?
+
+[Your content here]
+```
+
+## Default Privacy Policy
+
+Set the default privacy policy in `app.config.js`:
+
+```javascript
+module.exports = {
+  // Set the default privacy policy to initially display
+  defaultPrivacyPolicySlug: '/privacy/en',
+}
+```
+
+## Key Privacy Policy Sections
+
+The AgrospAI privacy policy includes these essential sections:
+
+### 1. Controller and DPO Contact Details
+
+```markdown
+## 1. Contact details of the controller and Data Protection Officer
+
+The controller pursuant to the EU General Data Protection Regulation ("GDPR"):
+
+Universitat de Lleida
+Víctor Siurana, 1
+25003 Lleida
+Spain
+E-mail: agrospai@udl.cat
+
+Data Protection Officer:
+E-mail: dpd@udl.cat
+```
+
+### 2. Personal Data Processed
+
+Clearly identify what personal data is collected:
+
+- **IP address**: Processed when visiting and using the portal
+- **Email**: If users contact via email
+
+### 3. Recipients and Cross-Border Transfers
+
+Document all third-party processors and their locations:
+
+```markdown
+## 3. Recipients and cross-border data transfer
+
+**Exoscale and OVH Cloud**
+Backend components are hosted on:
+- Exoscale servers in Frankfurt, Germany
+- OVH Cloud servers in Germany, France, and Poland
+
+Data processing is based on Data Processing Agreements (DPA).
+```
+
+<Note>
+Always provide links to third-party Data Processing Agreements and privacy policies for transparency.
+</Note>
+
+### 4. Processing Operations (Art. 13 GDPR)
+
+For each processing activity, document:
+
+- **Purpose**: Why the data is processed
+- **Legal basis**: GDPR article (e.g., Art. 6(1)(f) for legitimate interest)
+- **Legitimate interests**: If based on legitimate interest
+- **Retention period**: How long data is stored
+- **Right to object**: If applicable
+
+Example:
+
+```markdown
+## 4. Processing operations according to Article 13 GDPR
+
+**4.1 Providing our portal demonstrator**
+
+**Purpose:**
+Your IP address is necessary for providing the portal because it is a 
+technical requirement for ensuring communication between your device and 
+our portal.
+
+**Legal basis:**
+Legitimate interest, according to Art. 6(1)(f) GDPR.
+
+**Legitimate interests:**
+To provide the portal and enable security and optimization.
+
+**Retention period:**
+As long as needed to provide the portal services.
+
+**Right to object:**
+You have the right to object to this processing.
+```
+
+### 5. Cookies and Web Storage
+
+```markdown
+## 6. Cookies and Web Storage
+
+On our portal we use local storage enabling you to use portal features. 
+You can find more information in our Cookie Policy.
+
+We use Umami, a privacy-friendly web analytics tool. Umami:
+- Does not use cookies
+- Does not track individual visitors
+- Does not create persistent identifiers
+- Is self-hosted on our servers
+```
+
+### 6. User Rights
+
+Document all GDPR rights:
+
+- Right of access (Art. 15)
+- Right to rectification (Art. 16)
+- Right to erasure (Art. 17)
+- Right to restriction (Art. 18)
+- Right to data portability (Art. 20)
+- Right to object (Art. 21)
+- Right to lodge a complaint (Art. 77)
+
+<Warning>
+Ensure users know how to exercise their rights by providing clear contact information and procedures.
+</Warning>
+
+## Privacy-Focused Analytics
+
+The portal uses **Umami**, an open-source, privacy-focused analytics tool:
+
+```markdown
+## 4.4 Aggregated statistics
+
+UdL uses Umami, an open-source, privacy-focused web analytics tool. 
+
+Umami:
+- Does not collect or store personal data
+- Does not use cookies
+- Is GDPR and PECR compliant
+- Is self-hosted on our servers
+- Anonymizes all data collected
+- Cannot identify or track individual users
+
+**Purpose:** Measurement and website optimization
+**Legal basis:** Legitimate interest (Art. 6(1)(f) GDPR)
+**Retention period:** Data is anonymized, no PII retained
+```
+
+## Personal Data Restrictions
+
+The portal has strict rules about personal data:
+
+<Warning>
+**Critical Requirements:**
+- Metadata **must not** contain Personal Data
+- Service Offerings **must not** contain Personal Data
+- Customers are solely responsible for ensuring compliance
+- Public blockchain keys are publicly visible during transactions
+</Warning>
+
+From the privacy policy:
+
+> **7.2** Metadata and Service Offerings must not contain Personal Data.
+>
+> **7.3** The Customer's public key on the EVM Compatible Blockchain is publicly visible whenever the Customer engages in a transaction.
+
+## Linking to Privacy Policy
+
+Reference the privacy policy throughout the portal:
+
+### In Cookie Banner
+
+From `content/gdpr.json`:
+
+```json
+{
+  "text": "We use technically essential web storage on this website. Read more in our [privacy policy](/privacy/en#6-cookies-and-web-storage)."
+}
+```
+
+### In Application Config
+
+```javascript
+module.exports = {
+  defaultPrivacyPolicySlug: '/privacy/en',
+}
+```
+
+## Updating Privacy Policies
+
+When updating privacy policies:
+
+1. **Update the date** in `policies.json`
+2. **Document changes** at the top of the policy
+3. **Notify users** if changes are material (via email or banner)
+4. **Keep old versions** for records (recommended)
+
+```markdown
+## 10. Changes to the Privacy Policy
+
+We adjust this policy from time to time, by publishing a new version on 
+our portal. You can find the date of the current version at the beginning 
+of this policy. The latest version applies to the processing of your 
+personal data.
+```
+
+## Legal Requirements
+
+Ensure your privacy policy complies with:
+
+- **GDPR** (EU General Data Protection Regulation)
+- **PECR** (Privacy and Electronic Communications Regulations)
+- **ePrivacy Directive**
+- **Local data protection laws** in your jurisdiction
+
+<Note>
+Consult with legal counsel to ensure your privacy policy meets all applicable legal requirements for your specific use case and jurisdiction.
+</Note>
+
+## Best Practices
+
+1. **Use clear, plain language** - Avoid legal jargon where possible
+2. **Be transparent** - Clearly explain all data processing activities
+3. **Provide contact details** - Make it easy for users to reach your DPO
+4. **Link to processor agreements** - Provide links to third-party DPAs
+5. **Update regularly** - Review and update at least annually
+6. **Version control** - Keep dated versions for compliance records
+7. **Make it accessible** - Link from footer and during onboarding
+8. **Support multiple languages** - If your portal serves international users
+
+## Related Documentation
+
+- [GDPR Compliance](/compliance/gdpr)
+- [Terms and Conditions](/compliance/terms-conditions)
+- [Gaia-X Compliance](/compliance/gaia-x)

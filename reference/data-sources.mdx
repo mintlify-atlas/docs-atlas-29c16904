@@ -1,0 +1,429 @@
+---
+title: 'Data Sources'
+description: 'Query and fetch metadata from Aquarius, Subgraph, ENS, and Purgatory services'
+---
+
+## Overview
+
+The AgrospAI Data Space Portal integrates with multiple data sources to provide comprehensive asset discovery, blockchain data queries, and content moderation.
+
+## Aquarius
+
+Aquarius is the metadata cache and search API for Ocean Protocol assets. It indexes asset metadata from the blockchain and provides Elasticsearch-based search capabilities.
+
+### queryMetadata
+
+Query assets using Elasticsearch-based search with filtering, sorting, and pagination.
+
+<ParamField path="query" type="SearchQuery" required>
+  Elasticsearch query object containing search criteria
+</ParamField>
+
+<ParamField path="cancelToken" type="CancelToken" required>
+  Axios cancel token for request cancellation
+</ParamField>
+
+<ResponseField name="results" type="Asset[]">
+  Array of matching assets
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  Current page number (1-indexed)
+</ResponseField>
+
+<ResponseField name="totalPages" type="number">
+  Total number of pages available
+</ResponseField>
+
+<ResponseField name="totalResults" type="number">
+  Total number of matching assets
+</ResponseField>
+
+<ResponseField name="aggregations" type="any">
+  Elasticsearch aggregations data
+</ResponseField>
+
+```typescript
+import { queryMetadata, generateBaseQuery } from '@utils/aquarius'
+import axios from 'axios'
+
+const cancelToken = axios.CancelToken.source().token
+
+const baseQueryParams = {
+  chainIds: [1, 137],
+  sortOptions: {
+    sortBy: 'metadata.created',
+    sortDirection: 'desc'
+  },
+  esPaginationOptions: {
+    from: 0,
+    size: 20
+  }
+}
+
+const query = generateBaseQuery(baseQueryParams)
+const results = await queryMetadata(query, cancelToken)
+```
+
+### getAsset
+
+Retrieve a single asset by its DID (Decentralized Identifier).
+
+<ParamField path="did" type="string" required>
+  Asset DID in format `did:op:[64-char-hex]`
+</ParamField>
+
+<ParamField path="cancelToken" type="CancelToken" required>
+  Axios cancel token for request cancellation
+</ParamField>
+
+<ResponseField name="asset" type="Asset">
+  Complete asset metadata object
+</ResponseField>
+
+```typescript
+import { getAsset } from '@utils/aquarius'
+import axios from 'axios'
+
+const did = 'did:op:1234567890abcdef...'
+const cancelToken = axios.CancelToken.source().token
+const asset = await getAsset(did, cancelToken)
+```
+
+### getAssetsFromDids
+
+Fetch multiple assets by their DIDs in a single query.
+
+<ParamField path="didList" type="string[]" required>
+  Array of asset DIDs
+</ParamField>
+
+<ParamField path="chainIds" type="number[]" required>
+  Chain IDs to search on
+</ParamField>
+
+<ParamField path="cancelToken" type="CancelToken" required>
+  Axios cancel token
+</ParamField>
+
+```typescript
+import { getAssetsFromDids } from '@utils/aquarius'
+
+const dids = [
+  'did:op:abc123...',
+  'did:op:def456...'
+]
+const assets = await getAssetsFromDids(dids, [137], cancelToken)
+```
+
+### Query Helper Functions
+
+#### generateBaseQuery
+
+Generate an Elasticsearch query from high-level parameters.
+
+<ParamField path="baseQueryParams" type="BaseQueryParams" required>
+  Query configuration object
+</ParamField>
+
+```typescript
+interface BaseQueryParams {
+  chainIds: number[]
+  nestedQuery?: any
+  esPaginationOptions?: {
+    from?: number
+    size?: number
+  }
+  sortOptions?: {
+    sortBy: string
+    sortDirection: 'asc' | 'desc'
+  }
+  aggs?: any
+  filters?: FilterTerm[]
+  ignorePurgatory?: boolean
+  ignoreState?: boolean
+  showSaas?: boolean
+}
+```
+
+#### getFilterTerm
+
+Create an Elasticsearch filter term.
+
+<ParamField path="filterField" type="string" required>
+  DDO field path (e.g., 'metadata.type', 'nft.owner')
+</ParamField>
+
+<ParamField path="value" type="string | number | boolean | string[] | number[]" required>
+  Filter value
+</ParamField>
+
+<ParamField path="key" type="'term' | 'terms' | 'match' | 'match_phrase'" default="term">
+  Elasticsearch query type
+</ParamField>
+
+```typescript
+import { getFilterTerm } from '@utils/aquarius'
+
+const typeFilter = getFilterTerm('metadata.type', 'dataset')
+const multiFilter = getFilterTerm('chainId', [1, 137])
+const matchFilter = getFilterTerm('nft.owner', '0x123...', 'match')
+```
+
+## Subgraph
+
+The Ocean Protocol Subgraph indexes on-chain events and provides GraphQL queries for blockchain data.
+
+### getUserTokenOrders
+
+Fetch all token orders (purchases) for a user across multiple chains.
+
+<ParamField path="accountId" type="string" required>
+  User's Ethereum address
+</ParamField>
+
+<ParamField path="chainIds" type="number[]" required>
+  Array of chain IDs to query
+</ParamField>
+
+<ResponseField name="orders" type="OrdersData[]">
+  Array of order objects with datatoken and transaction details
+</ResponseField>
+
+```typescript
+import { getUserTokenOrders } from '@utils/subgraph'
+
+const orders = await getUserTokenOrders(
+  '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+  [1, 137]
+)
+
+// Order structure
+interface OrdersData {
+  consumer: { id: string }
+  datatoken: {
+    id: string
+    address: string
+    symbol: string
+  }
+  consumerMarketToken: {
+    address: string
+    symbol: string
+  }
+  createdTimestamp: number
+  tx: string
+}
+```
+
+### getOpcFees
+
+Retrieve Ocean Protocol Community (OPC) fee configuration for a chain.
+
+<ParamField path="chainId" type="number" required>
+  Chain ID to query fees for
+</ParamField>
+
+<ResponseField name="swapOceanFee" type="string">
+  Fee percentage for OCEAN token swaps
+</ResponseField>
+
+<ResponseField name="swapNonOceanFee" type="string">
+  Fee percentage for non-OCEAN token swaps
+</ResponseField>
+
+<ResponseField name="orderFee" type="string">
+  Fee percentage for orders
+</ResponseField>
+
+<ResponseField name="providerFee" type="string">
+  Fee percentage for provider operations
+</ResponseField>
+
+```typescript
+import { getOpcFees } from '@utils/subgraph'
+
+const fees = await getOpcFees(137)
+console.log(fees.orderFee) // '0.001'
+```
+
+### getOpcsApprovedTokens
+
+Get list of approved tokens for payments on a specific chain.
+
+<ParamField path="chainId" type="number" required>
+  Chain ID
+</ParamField>
+
+<ResponseField name="tokens" type="TokenInfo[]">
+  Array of approved token information
+</ResponseField>
+
+```typescript
+import { getOpcsApprovedTokens } from '@utils/subgraph'
+
+const tokens = await getOpcsApprovedTokens(137)
+
+// TokenInfo structure
+interface TokenInfo {
+  address: string
+  symbol: string
+  name: string
+  decimals: number
+}
+```
+
+### Query Helpers
+
+#### getSubgraphUri
+
+Get the subgraph URI for a specific chain.
+
+```typescript
+import { getSubgraphUri } from '@utils/subgraph'
+
+const uri = getSubgraphUri(137)
+// 'https://v4.subgraph.polygon.oceanprotocol.com'
+```
+
+#### getQueryContext
+
+Create an operation context for urql queries.
+
+```typescript
+import { getQueryContext } from '@utils/subgraph'
+
+const context = getQueryContext(137)
+// { url: '...', requestPolicy: 'network-only' }
+```
+
+#### fetchData
+
+Execute a GraphQL query against the subgraph.
+
+<ParamField path="query" type="TypedDocumentNode" required>
+  GraphQL query document
+</ParamField>
+
+<ParamField path="variables" type="any" required>
+  Query variables
+</ParamField>
+
+<ParamField path="context" type="OperationContext" required>
+  Query context with URL and options
+</ParamField>
+
+```typescript
+import { fetchData, getQueryContext } from '@utils/subgraph'
+import { gql } from 'urql'
+
+const query = gql`
+  query GetAssets($owner: String!) {
+    nfts(where: { owner: $owner }) {
+      id
+      owner
+      tokenUri
+    }
+  }
+`
+
+const context = getQueryContext(137)
+const result = await fetchData(query, { owner: '0x123...' }, context)
+```
+
+## ENS (Ethereum Name Service)
+
+ENS support is integrated through Ocean Protocol's configuration system.
+
+```typescript
+import { getOceanConfig } from '@utils/ocean'
+
+const config = getOceanConfig(1) // Ethereum mainnet
+// ENS names are automatically resolved by Ocean Protocol SDK
+```
+
+## Purgatory
+
+Purgatory is a content moderation system that flags problematic assets or accounts.
+
+### getAccountPurgatoryData
+
+Check if an account address is in purgatory (flagged for moderation).
+
+<ParamField path="address" type="string" required>
+  Ethereum address to check
+</ParamField>
+
+<ResponseField name="address" type="string | undefined">
+  Address if in purgatory, undefined otherwise
+</ResponseField>
+
+<ResponseField name="reason" type="string | undefined">
+  Reason for purgatory status
+</ResponseField>
+
+```typescript
+import { getAccountPurgatoryData } from '@utils/purgatory'
+
+const result = await getAccountPurgatoryData('0x123...')
+
+if (result.address) {
+  console.log(`Account flagged: ${result.reason}`)
+}
+```
+
+### Purgatory Filtering in Queries
+
+Aquarius queries automatically filter out purgatory assets unless explicitly disabled:
+
+```typescript
+const baseQueryParams = {
+  chainIds: [137],
+  ignorePurgatory: false // Default: filters purgatory assets
+}
+
+// To include purgatory assets
+const queryAllParams = {
+  chainIds: [137],
+  ignorePurgatory: true // Include flagged assets
+}
+```
+
+## Error Handling
+
+All data source functions include built-in error handling with logging:
+
+```typescript
+import { LoggerInstance } from '@oceanprotocol/lib'
+import { queryMetadata } from '@utils/aquarius'
+
+try {
+  const results = await queryMetadata(query, cancelToken)
+  if (!results) {
+    console.error('No results returned')
+  }
+} catch (error) {
+  LoggerInstance.error('Query failed:', error.message)
+}
+```
+
+## Type Definitions
+
+```typescript
+// Asset returned from Aquarius
+import { Asset } from '@oceanprotocol/lib'
+
+// Paged results
+interface PagedAssets {
+  results: Asset[]
+  page: number
+  totalPages: number
+  totalResults: number
+  aggregations: any
+}
+
+// Purgatory data
+interface PurgatoryDataAccount {
+  address: string
+  reason: string
+}
+```

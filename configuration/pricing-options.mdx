@@ -1,0 +1,294 @@
+---
+title: Pricing Options
+description: Configure available pricing models for data assets in the marketplace
+---
+
+The AgrospAI Data Space Portal supports three pricing models for data assets: Fixed Pricing, Dynamic Pricing, and Free Pricing. This page explains each pricing model and how to enable or disable them.
+
+## Pricing Models Overview
+
+Publishers can choose from three pricing strategies when publishing data assets:
+
+1. **Fixed Pricing** - Set a specific price in tokens for asset access
+2. **Dynamic Pricing** - Price adjusts based on supply and demand (bonding curve)
+3. **Free Pricing** - Assets available at no cost to consumers
+
+Each pricing option can be independently enabled or disabled through configuration.
+
+## Configuration
+
+Pricing options are controlled by environment variables in your `.env` file and processed in `app.config.js`.
+
+### Fixed Pricing
+
+<ParamField path="NEXT_PUBLIC_ALLOW_FIXED_PRICING" type="boolean">
+  Enable or disable the fixed pricing option during asset price creation.
+  
+  **Default:** `true`
+  
+  **How it works:** Publishers set a specific price (e.g., 10 OCEAN tokens) that consumers pay to access the asset. The price remains constant unless manually updated by the publisher.
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  allowFixedPricing: process.env.NEXT_PUBLIC_ALLOW_FIXED_PRICING || 'true'
+  ```
+  
+  **Enable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+  ```
+  
+  **Disable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_FIXED_PRICING="false"
+  ```
+</ParamField>
+
+**Use cases for Fixed Pricing:**
+- Stable, predictable pricing for enterprise data
+- Premium datasets with known value
+- Subscription-like access models
+- When you want consistent revenue per access
+
+### Dynamic Pricing
+
+<ParamField path="NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING" type="boolean">
+  Enable or disable the dynamic pricing option during asset price creation.
+  
+  **Default:** `false`
+  
+  **How it works:** Price automatically adjusts based on a bonding curve mechanism. As more datatokens are purchased, the price increases; as tokens are sold back, the price decreases.
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  allowDynamicPricing: process.env.NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING || 'false'
+  ```
+  
+  **Enable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="true"
+  ```
+  
+  **Disable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="false"
+  ```
+</ParamField>
+
+<Info>
+  Dynamic pricing is disabled by default in the AgrospAI Data Space Portal. Enable it only if you want to support market-driven pricing mechanisms.
+</Info>
+
+**Use cases for Dynamic Pricing:**
+- High-demand datasets where market determines value
+- Experimental pricing models
+- Limited availability datasets
+- Incentivizing early adopters (lower initial price)
+
+### Free Pricing
+
+<ParamField path="NEXT_PUBLIC_ALLOW_FREE_PRICING" type="boolean">
+  Enable or disable the free pricing option during asset price creation.
+  
+  **Default:** `true`
+  
+  **How it works:** Assets are made available at no cost to consumers. Publishers don't receive payment, but consumers may still pay gas fees for blockchain transactions.
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  allowFreePricing: process.env.NEXT_PUBLIC_ALLOW_FREE_PRICING || 'true'
+  ```
+  
+  **Enable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+  ```
+  
+  **Disable in .env:**
+  ```bash
+  NEXT_PUBLIC_ALLOW_FREE_PRICING="false"
+  ```
+</ParamField>
+
+**Use cases for Free Pricing:**
+- Open data initiatives
+- Public datasets
+- Sample or demo datasets
+- Building community engagement
+- Research data sharing
+
+## Configuration Examples
+
+### Example 1: Default Configuration (Fixed + Free)
+
+The default configuration enables both fixed and free pricing:
+
+```bash .env
+NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="false"
+NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+```
+
+Publishers can choose between:
+- Setting a fixed price for their data
+- Making their data freely available
+
+### Example 2: Fixed Pricing Only
+
+For commercial marketplaces requiring all assets to be priced:
+
+```bash .env
+NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="false"
+NEXT_PUBLIC_ALLOW_FREE_PRICING="false"
+```
+
+### Example 3: All Pricing Models Enabled
+
+For maximum flexibility:
+
+```bash .env
+NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="true"
+NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+```
+
+### Example 4: Free Only (Open Data Portal)
+
+For open data initiatives where all data must be free:
+
+```bash .env
+NEXT_PUBLIC_ALLOW_FIXED_PRICING="false"
+NEXT_PUBLIC_ALLOW_DYNAMIC_PRICING="false"
+NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+```
+
+## How Pricing Options Appear to Publishers
+
+When publishers create or edit a data asset and set pricing:
+
+1. The UI displays tabs or options for enabled pricing models only
+2. Disabled pricing models are hidden from the interface
+3. If only one pricing model is enabled, it may be automatically selected
+
+**Example with all three enabled:**
+```
+┌─────────────────────────────────────┐
+│  Choose Pricing Model               │
+├─────────────────────────────────────┤
+│  ○ Fixed Pricing                    │
+│  ○ Dynamic Pricing                  │
+│  ○ Free                             │
+└─────────────────────────────────────┘
+```
+
+**Example with only fixed pricing enabled:**
+```
+┌─────────────────────────────────────┐
+│  Set Fixed Price                    │
+├─────────────────────────────────────┤
+│  Price: [___] OCEAN                 │
+└─────────────────────────────────────┘
+```
+
+## Smart Contract Integration
+
+Each pricing model uses different Ocean Protocol smart contracts:
+
+### Fixed Rate Exchange
+
+<ParamField path="fixedRateExchangeAddress" type="string">
+  Smart contract handling fixed price transactions.
+  
+  **Pontus-X DevNet:** `0x8372715D834d286c9aECE1AcD51Da5755B32D505`
+  
+  **Pontus-X TestNet:** `0xcE0F39abB6DA2aE4d072DA78FA0A711cBB62764E`
+</ParamField>
+
+When a publisher sets a fixed price, an exchange is created on this contract.
+
+### Dispenser
+
+<ParamField path="dispenserAddress" type="string">
+  Smart contract handling free asset distribution.
+  
+  **Pontus-X DevNet:** `0x5461b629E01f72E0A468931A36e039Eea394f9eA`
+  
+  **Pontus-X TestNet:** `0xaB5B68F88Bc881CAA427007559E9bbF8818026dE`
+</ParamField>
+
+When a publisher makes an asset free, the dispenser contract manages token distribution.
+
+### Dynamic Pricing (Bonding Curve)
+
+Dynamic pricing uses Ocean Protocol's bonding curve implementation within the datatoken contracts.
+
+## Development Mode Overrides
+
+When running in development mode, you can override contract addresses:
+
+```bash .env
+NEXT_PUBLIC_MARKET_DEVELOPMENT="true"
+NEXT_PUBLIC_FIXED_RATE_EXCHANGE_ADDRESS="0x..."
+NEXT_PUBLIC_DISPENSER_ADDRESS="0x..."
+```
+
+See [Network Setup](/configuration/network-setup) for more details.
+
+## Impact on Marketplace Economics
+
+### Enabling Fixed Pricing
+- Publishers earn predictable revenue
+- Consumers know exact costs upfront
+- Suitable for professional/commercial datasets
+
+### Enabling Dynamic Pricing
+- Price reflects market demand
+- Early adopters get better prices
+- Can maximize revenue for high-demand assets
+- Adds complexity to consumer experience
+
+### Enabling Free Pricing
+- Increases data accessibility
+- Builds community and engagement
+- No direct revenue for publishers
+- May attract lower-quality datasets
+
+## Best Practices
+
+<Tip>
+  **Start with Fixed + Free pricing enabled** (the default). This provides flexibility while keeping the user experience simple.
+</Tip>
+
+<Tip>
+  **Consider your marketplace goals** when choosing pricing models:
+  - Commercial marketplace → Enable fixed, disable free
+  - Open data portal → Enable only free
+  - Research community → Enable all options
+</Tip>
+
+<Warning>
+  Changing pricing options only affects new assets or assets being re-published. Existing assets retain their original pricing model.
+</Warning>
+
+<Tip>
+  **Test pricing changes** on a development or testnet environment before modifying production settings.
+</Tip>
+
+## Related Configuration
+
+Pricing options work in conjunction with:
+
+- [Marketplace Fees](/configuration/marketplace-fees) - Configure fees on top of asset prices
+- [Network Setup](/configuration/network-setup) - Contract addresses for pricing mechanisms
+- [Environment Variables](/configuration/environment-variables) - Complete environment configuration
+
+## Default Datatoken Template
+
+The portal uses datatoken template index 2 by default:
+
+```javascript app.config.js
+defaultDatatokenTemplateIndex: 2
+```
+
+This template supports all three pricing models. Different templates may have different capabilities.

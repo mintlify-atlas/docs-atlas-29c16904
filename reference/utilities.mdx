@@ -1,0 +1,660 @@
+---
+title: 'Utility Functions'
+description: 'Helper functions for DDO manipulation, number formatting, provider interactions, and NFT operations'
+---
+
+## Overview
+
+Utility functions provide reusable logic for common operations like data formatting, validation, file handling, and blockchain interactions.
+
+## DDO & Asset Utilities
+
+### isValidDid
+
+Validate Ocean Protocol DID format.
+
+<ParamField path="did" type="string" required>
+  DID string to validate
+</ParamField>
+
+<ResponseField name="valid" type="boolean">
+  Whether DID matches pattern `did:op:[64-char-hex]`
+</ResponseField>
+
+```typescript
+import { isValidDid } from '@utils/ddo'
+
+const valid = isValidDid('did:op:1234567890abcdef...')
+if (!valid) {
+  throw new Error('Invalid DID format')
+}
+```
+
+### getServiceByName
+
+Extract a specific service from an asset DDO.
+
+<ParamField path="ddo" type="Asset | DDO" required>
+  Asset object
+</ParamField>
+
+<ParamField path="name" type="'access' | 'compute'" required>
+  Service type to retrieve
+</ParamField>
+
+<ResponseField name="service" type="Service">
+  Service object or undefined
+</ResponseField>
+
+```typescript
+import { getServiceByName } from '@utils/ddo'
+
+const accessService = getServiceByName(asset, 'access')
+const computeService = getServiceByName(asset, 'compute')
+
+if (accessService) {
+  console.log('Provider URL:', accessService.serviceEndpoint)
+  console.log('Datatoken:', accessService.datatokenAddress)
+}
+```
+
+### getServiceById
+
+Get a service by its ID.
+
+<ParamField path="ddo" type="Asset | DDO" required>
+  Asset object
+</ParamField>
+
+<ParamField path="serviceId" type="string" required>
+  Service ID
+</ParamField>
+
+```typescript
+import { getServiceById } from '@utils/ddo'
+
+const service = getServiceById(asset, 'service-1')
+```
+
+### isAddressWhitelisted
+
+Check if an address has access to an asset based on credentials.
+
+<ParamField path="ddo" type="AssetExtended" required>
+  Asset with credentials
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Ethereum address to check
+</ParamField>
+
+<ResponseField name="allowed" type="boolean">
+  Whether address can access the asset
+</ResponseField>
+
+```typescript
+import { isAddressWhitelisted } from '@utils/ddo'
+import { useAccount } from 'wagmi'
+
+function AccessCheck({ asset }) {
+  const { address } = useAccount()
+  const hasAccess = isAddressWhitelisted(asset, address)
+
+  if (!hasAccess) {
+    return <Alert state="error">You don't have access to this asset</Alert>
+  }
+
+  return <DownloadButton asset={asset} />
+}
+```
+
+## Time Utilities
+
+### mapTimeoutStringToSeconds
+
+Convert human-readable timeout strings to seconds.
+
+<ParamField path="timeout" type="string" required>
+  Timeout string ('Forever', '1 hour', '1 day', '1 week', '1 month', '1 year')
+</ParamField>
+
+<ResponseField name="seconds" type="number">
+  Number of seconds (0 for 'Forever')
+</ResponseField>
+
+```typescript
+import { mapTimeoutStringToSeconds } from '@utils/ddo'
+
+const seconds = mapTimeoutStringToSeconds('1 day')
+// 86400
+
+const forever = mapTimeoutStringToSeconds('Forever')
+// 0
+```
+
+### secondsToString
+
+Convert seconds to human-readable duration string.
+
+<ParamField path="numberOfSeconds" type="number" required>
+  Duration in seconds
+</ParamField>
+
+<ResponseField name="duration" type="string">
+  Human-readable string (e.g., '2 days', '3 hours')
+</ResponseField>
+
+```typescript
+import { secondsToString } from '@utils/ddo'
+
+const duration = secondsToString(86400)
+// '1 day'
+
+const longDuration = secondsToString(2678400)
+// '1 month'
+```
+
+## Number Formatting
+
+### formatNumber
+
+Format numbers with locale-aware formatting.
+
+<ParamField path="price" type="number" required>
+  Number to format
+</ParamField>
+
+<ParamField path="locale" type="string" required>
+  Locale code (e.g., 'en-US', 'de-DE')
+</ParamField>
+
+<ParamField path="decimals" type="string" optional>
+  Number of decimal places
+</ParamField>
+
+<ResponseField name="formatted" type="string">
+  Formatted number string
+</ResponseField>
+
+```typescript
+import { formatNumber } from '@utils/numbers'
+
+const price = formatNumber(1234.5678, 'en-US', '2')
+// '1,234.57'
+
+const euro = formatNumber(1234.5678, 'de-DE', '2')
+// '1.234,57'
+```
+
+### compareAsBN
+
+Compare two decimal numbers with BigNumber precision.
+
+<ParamField path="balance" type="string" required>
+  First number as string
+</ParamField>
+
+<ParamField path="price" type="string" required>
+  Second number as string
+</ParamField>
+
+<ResponseField name="sufficient" type="boolean">
+  True if balance >= price
+</ResponseField>
+
+```typescript
+import { compareAsBN } from '@utils/numbers'
+
+const hasEnough = compareAsBN('10.5', '10.0')
+// true
+
+const insufficient = compareAsBN('5.0', '10.0')
+// false
+```
+
+### getMaxDecimalsValidation
+
+Generate regex for validating decimal places.
+
+<ParamField path="max" type="number" required>
+  Maximum number of decimal places
+</ParamField>
+
+<ResponseField name="regex" type="RegExp">
+  Regular expression for validation
+</ResponseField>
+
+```typescript
+import { getMaxDecimalsValidation } from '@utils/numbers'
+
+const validator = getMaxDecimalsValidation(2)
+validator.test('10.99')  // true
+validator.test('10.999') // false
+```
+
+## Provider Utilities
+
+Functions for interacting with Ocean Protocol providers.
+
+### getFileInfo
+
+Retrieve file metadata from a provider.
+
+<ParamField path="file" type="string" required>
+  File URL, IPFS hash, or Arweave transaction ID
+</ParamField>
+
+<ParamField path="providerUrl" type="string" required>
+  Provider endpoint URL
+</ParamField>
+
+<ParamField path="storageType" type="string" required>
+  Storage type: 'url', 'ipfs', 'arweave', 'graphql', 'smartcontract'
+</ParamField>
+
+<ParamField path="query" type="string" optional>
+  GraphQL query (for graphql type)
+</ParamField>
+
+<ParamField path="headers" type="KeyValuePair[]" optional>
+  HTTP headers
+</ParamField>
+
+<ParamField path="abi" type="string" optional>
+  Contract ABI (for smartcontract type)
+</ParamField>
+
+<ParamField path="chainId" type="number" optional>
+  Chain ID (for smartcontract type)
+</ParamField>
+
+<ParamField path="withChecksum" type="boolean" default="false">
+  Include file checksum in response
+</ParamField>
+
+<ResponseField name="fileInfo" type="FileInfo[]">
+  Array of file information objects
+</ResponseField>
+
+```typescript
+import { getFileInfo } from '@utils/provider'
+
+// URL file
+const urlInfo = await getFileInfo(
+  'https://example.com/data.csv',
+  'https://provider.oceanprotocol.com',
+  'url',
+  undefined,
+  [],
+  undefined,
+  undefined,
+  'GET',
+  true
+)
+
+// IPFS file
+const ipfsInfo = await getFileInfo(
+  'QmXyz123...',
+  'https://provider.oceanprotocol.com',
+  'ipfs'
+)
+
+// Smart contract
+const contractInfo = await getFileInfo(
+  '0x1234...', // contract address
+  'https://provider.oceanprotocol.com',
+  'smartcontract',
+  undefined,
+  [],
+  JSON.stringify(contractAbi),
+  1
+)
+```
+
+### getEncryptedFiles
+
+Encrypt file information for DDO storage.
+
+<ParamField path="files" type="any" required>
+  File object(s) to encrypt
+</ParamField>
+
+<ParamField path="chainId" type="number" required>
+  Chain ID
+</ParamField>
+
+<ParamField path="providerUrl" type="string" required>
+  Provider endpoint
+</ParamField>
+
+<ResponseField name="encrypted" type="string">
+  Encrypted file string
+</ResponseField>
+
+```typescript
+import { getEncryptedFiles } from '@utils/provider'
+
+const files = [{
+  type: 'url',
+  url: 'https://example.com/data.csv',
+  method: 'GET'
+}]
+
+const encrypted = await getEncryptedFiles(
+  files,
+  137,
+  'https://provider.oceanprotocol.com'
+)
+```
+
+### downloadFile
+
+Download an asset file after purchase.
+
+<ParamField path="signer" type="Signer" required>
+  Ethers signer
+</ParamField>
+
+<ParamField path="asset" type="AssetExtended" required>
+  Asset to download
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  User's address
+</ParamField>
+
+<ParamField path="validOrderTx" type="string" optional>
+  Order transaction hash
+</ParamField>
+
+<ParamField path="userCustomParameters" type="UserCustomParameters" optional>
+  Custom parameters for compute
+</ParamField>
+
+```typescript
+import { downloadFile } from '@utils/provider'
+import { useSigner } from 'wagmi'
+
+function DownloadButton({ asset }) {
+  const { data: signer } = useSigner()
+  const { address } = useAccount()
+
+  const handleDownload = async () => {
+    await downloadFile(
+      signer,
+      asset,
+      address,
+      asset.accessDetails.validOrderTx
+    )
+  }
+
+  return <Button onClick={handleDownload}>Download</Button>
+}
+```
+
+### checkValidProvider
+
+Verify if a provider URL is valid and responsive.
+
+<ParamField path="providerUrl" type="string" required>
+  Provider URL to check
+</ParamField>
+
+<ResponseField name="valid" type="boolean">
+  Whether provider is valid
+</ResponseField>
+
+```typescript
+import { checkValidProvider } from '@utils/provider'
+
+const isValid = await checkValidProvider('https://provider.oceanprotocol.com')
+if (!isValid) {
+  console.error('Provider is not responding')
+}
+```
+
+## NFT Utilities
+
+### generateNftMetadata
+
+Generate NFT metadata with unique SVG artwork.
+
+<ResponseField name="metadata" type="NftMetadata">
+  NFT metadata object
+</ResponseField>
+
+```typescript
+import { generateNftMetadata } from '@utils/nft'
+
+const metadata = generateNftMetadata()
+// {
+//   name: 'PX Data NFT',
+//   symbol: 'PX-NFT',
+//   description: '...',
+//   background_color: '141414',
+//   image_data: 'data:image/svg+xml,...',
+//   external_url: 'https://portal.pontus-x.eu'
+// }
+```
+
+### generateNftCreateData
+
+Prepare data for NFT creation transaction.
+
+<ParamField path="nftMetadata" type="NftMetadata" required>
+  NFT metadata object
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Owner address
+</ParamField>
+
+<ParamField path="transferable" type="boolean" default="true">
+  Whether NFT can be transferred
+</ParamField>
+
+<ResponseField name="createData" type="NftCreateData">
+  Data for createNFT transaction
+</ResponseField>
+
+```typescript
+import { generateNftMetadata, generateNftCreateData } from '@utils/nft'
+import { useAccount } from 'wagmi'
+
+function CreateNFT() {
+  const { address } = useAccount()
+
+  const createNFT = async () => {
+    const metadata = generateNftMetadata()
+    const createData = generateNftCreateData(metadata, address, true)
+    // Use createData with Ocean Protocol SDK
+  }
+}
+```
+
+### decodeTokenURI
+
+Decode NFT token URI to extract metadata.
+
+<ParamField path="tokenURI" type="string" required>
+  Base64-encoded token URI
+</ParamField>
+
+<ResponseField name="metadata" type="NftMetadata">
+  Decoded NFT metadata
+</ResponseField>
+
+```typescript
+import { decodeTokenURI } from '@utils/nft'
+
+const tokenUri = 'data:application/json;base64,eyJuYW1lIjoi...'
+const metadata = decodeTokenURI(tokenUri)
+console.log(metadata.name, metadata.description)
+```
+
+### setNFTMetadataAndTokenURI
+
+Update NFT metadata and token URI on-chain.
+
+<ParamField path="asset" type="Asset | DDO" required>
+  Asset DDO
+</ParamField>
+
+<ParamField path="accountId" type="string" required>
+  Owner address
+</ParamField>
+
+<ParamField path="signer" type="Signer" required>
+  Ethers signer
+</ParamField>
+
+<ParamField path="nftMetadata" type="NftMetadata | undefined" required>
+  New NFT metadata
+</ParamField>
+
+<ParamField path="signal" type="AbortSignal" required>
+  Abort signal for cancellation
+</ParamField>
+
+<ResponseField name="tx" type="TransactionResponse">
+  Transaction response
+</ResponseField>
+
+```typescript
+import { setNFTMetadataAndTokenURI, generateNftMetadata } from '@utils/nft'
+import { useAbortController } from '@hooks/useAbortController'
+import { useSigner, useAccount } from 'wagmi'
+
+function UpdateNFT({ asset }) {
+  const { data: signer } = useSigner()
+  const { address } = useAccount()
+  const newAbortController = useAbortController()
+
+  const updateMetadata = async () => {
+    const metadata = generateNftMetadata()
+    const tx = await setNFTMetadataAndTokenURI(
+      asset,
+      address,
+      signer,
+      metadata,
+      newAbortController()
+    )
+    await tx.wait()
+    console.log('NFT updated')
+  }
+
+  return <Button onClick={updateMetadata}>Update NFT</Button>
+}
+```
+
+## General Utilities
+
+### sortAssets
+
+Sort assets by a specific order of DIDs.
+
+<ParamField path="items" type="Asset[]" required>
+  Array of assets
+</ParamField>
+
+<ParamField path="sorted" type="string[]" required>
+  Array of DIDs in desired order
+</ParamField>
+
+<ResponseField name="sorted" type="Asset[]">
+  Sorted asset array
+</ResponseField>
+
+```typescript
+import { sortAssets } from '@utils/index'
+
+const assets = [asset1, asset2, asset3]
+const order = [asset2.id, asset1.id, asset3.id]
+const sorted = sortAssets(assets, order)
+```
+
+### getObjectPropertyByPath
+
+Safely access nested object properties by path string.
+
+<ParamField path="object" type="any" required>
+  Object to query
+</ParamField>
+
+<ParamField path="path" type="string" default="''">
+  Dot-notation path (e.g., 'metadata.created')
+</ParamField>
+
+<ResponseField name="value" type="any">
+  Property value or undefined
+</ResponseField>
+
+```typescript
+import { getObjectPropertyByPath } from '@utils/index'
+
+const asset = {
+  metadata: {
+    name: 'My Dataset',
+    created: '2024-01-01'
+  }
+}
+
+const name = getObjectPropertyByPath(asset, 'metadata.name')
+// 'My Dataset'
+
+const missing = getObjectPropertyByPath(asset, 'metadata.missing.prop')
+// undefined
+```
+
+### fetchData
+
+Simple fetch wrapper with error handling.
+
+<ParamField path="url" type="string" required>
+  URL to fetch
+</ParamField>
+
+<ResponseField name="data" type="any">
+  Response data or undefined on error
+</ResponseField>
+
+```typescript
+import { fetchData } from '@utils/fetch'
+
+const data = await fetchData('https://api.example.com/data')
+if (data) {
+  console.log('Success:', data)
+}
+```
+
+## Type Definitions
+
+```typescript
+// NFT types
+interface NftMetadata {
+  name: string
+  symbol: string
+  description: string
+  image?: string
+  external_url?: string
+  image_data?: string
+  background_color?: string
+}
+
+interface NftCreateData {
+  name: string
+  symbol: string
+  templateIndex: number
+  tokenURI: string
+  transferable: boolean
+  owner: string
+}
+
+// File types
+interface FileInfo {
+  valid: boolean
+  contentLength?: string
+  contentType?: string
+  checksum?: string
+}
+```

@@ -1,0 +1,378 @@
+---
+title: Publishing Assets
+description: Step-by-step guide to publish datasets, algorithms, and SaaS offerings on AgrospAI Data Space Portal
+---
+
+Publish your data assets to the AgrospAI Data Space Portal to monetize or share them with the ecosystem. This guide covers the complete publishing workflow for datasets, algorithms, and Software-as-a-Service (SaaS) offerings.
+
+## Prerequisites
+
+Before publishing, ensure you have:
+
+- A connected Web3 wallet (MetaMask recommended)
+- Sufficient network tokens for transaction fees
+- Your data file accessible via URL, IPFS, or API endpoint
+- Terms and conditions URL (optional, portal default will be used)
+
+<Warning>
+Do not provide downloadable personal data without the consent of data subjects. Ensure compliance with GDPR and data protection regulations.
+</Warning>
+
+## Publishing Workflow
+
+<Steps>
+
+<Step title="Choose Asset Type">
+
+Select the type of asset you want to publish:
+
+- **Dataset**: Raw data files accessible for download or compute
+- **Algorithm**: Code that processes data in Compute-to-Data environments
+- **SaaS**: Software-as-a-Service offering with redirect URL
+
+```tsx
+// Asset type selection in Publish/Metadata/index.tsx
+const assetTypeOptions: BoxSelectionOption[] = [
+  {
+    name: 'dataset',
+    title: 'Dataset',
+    checked: values.metadata.type === 'dataset',
+    icon: <IconDataset />
+  },
+  {
+    name: 'algorithm',
+    title: 'Algorithm',
+    checked: values.metadata.type === 'algorithm',
+    icon: <IconAlgorithm />
+  },
+  {
+    name: 'saas',
+    title: 'SaaS',
+    checked: values.metadata.type === 'dataset' && 
+            values.services[0]?.files[0]?.type === 'saas',
+    icon: <IconSaas />
+  }
+]
+```
+
+</Step>
+
+<Step title="Configure Data NFT and Metadata">
+
+Provide essential metadata for your asset:
+
+**Data NFT Information**
+- NFT Name and Symbol: Unique identifiers for your Data NFT
+- These represent the intellectual property of your asset
+
+**Asset Details**
+- **Title**: Descriptive name (e.g., "Shapes of Desert Plants")
+- **Description**: Thorough description using Markdown format
+- **Tags**: Searchable keywords (e.g., "logistics", "agriculture")
+- **License**: SPDX identifier or URL to custom license
+- **Service Credential**: URL to Gaia-X service credential (optional)
+
+<Tip>
+Use detailed descriptions with as much context as possible. You can use [Markdown formatting](https://daringfireball.net/projects/markdown/basics) to enhance readability.
+</Tip>
+
+### Dataset-Specific Fields
+
+For datasets, indicate if your data contains Personally Identifiable Information (PII):
+
+```json
+{
+  "containsPII": true,
+  "PIIInformation": {
+    "legitimateProcessing": {
+      "dataController": "Your Organization Name",
+      "legalBasis": "GDPR2016:6.1.a",
+      "purpose": "ServiceOptimization, UserInterfacePersonalization",
+      "dataProtectionContactPoint": "dpo@example.com",
+      "consentWithdrawalContactPoint": "consent@example.com"
+    }
+  }
+}
+```
+
+### Algorithm-Specific Fields
+
+For algorithms, configure the Docker container:
+
+- **Docker Image**: Select from presets or provide custom image
+- **Image Checksum**: SHA-256 digest of your Docker image
+- **Entrypoint**: Command to execute (e.g., `python $ALGO`)
+- **Algorithm Custom Parameters**: Define user inputs if needed
+
+**Algorithm Privacy Option**
+
+<Note>
+Enabling "Keep my algorithm private for Compute-to-Data" prevents downloading, allowing the algorithm to only run in compute jobs.
+</Note>
+
+</Step>
+
+<Step title="Configure File Access">
+
+Add your data file or service endpoint:
+
+**URL/File Options**
+- **URL**: Direct file link (e.g., `https://file.com/data.json`)
+- **API**: REST endpoint with optional headers
+- **GraphQL**: GraphQL endpoint with query definition
+- **IPFS**: Content identifier (CID)
+- **SaaS**: Redirect URL for service access
+
+```tsx
+// File validation happens in Publish/_validation.ts
+// Provider encrypts the file information after publishing
+const ddoEncrypted = await ProviderInstance.encrypt(
+  ddo,
+  ddo.chainId,
+  values.services[0].providerUrl.url,
+  abortController
+)
+```
+
+**Access Controller URL**
+
+The provider service manages file access. Use the default or specify a custom provider URL.
+
+<Warning>
+Ensure your file endpoint is accessible over the internet and not protected by a firewall or credentials. The URL will be stored encrypted.
+</Warning>
+
+**Access Type**
+
+- **Access**: Files can be downloaded directly
+- **Compute**: Files only accessible in Compute-to-Data environments
+
+</Step>
+
+<Step title="Set Access Policies">
+
+Define who can access your asset and for how long:
+
+**Access Period**
+- Forever
+- 1 hour
+- 1 day
+- 1 week
+- 1 month
+- 1 year
+
+**Allowlist (Optional)**
+
+Restrict access to specific wallet addresses:
+
+```
+0xe328aB96B7CbB55A6E1c1054678137bA09780acA
+0x1234567890123456789012345678901234567890
+```
+
+If empty, anyone can access the asset.
+
+**Denylist (Optional)**
+
+Block specific wallet addresses from accessing your asset.
+
+<Tip>
+For Gaia-X compliant access control, refer to the [Pontus-X registry](https://docs.pontus-x.eu/docs/participants-and-federators/ecosystem-participants) for verified participant addresses.
+</Tip>
+
+</Step>
+
+<Step title="Configure Pricing">
+
+Choose your pricing model:
+
+### Fixed Price
+
+```tsx
+{
+  "type": "fixed",
+  "price": 10,
+  "baseToken": {
+    "address": "0x...",
+    "symbol": "OCEAN",
+    "name": "Ocean Token"
+  },
+  "amountDataToken": 1000
+}
+```
+
+- **Price**: Amount in selected token
+- **Base Token**: Payment token (OCEAN, USDC, etc.)
+- **Datatoken Amount**: Number of datatokens to mint
+
+### Free Access
+
+- No payment required
+- Users still need to complete transaction to obtain datatoken
+- You must accept the "Free Asset Agreement"
+
+### SaaS Payment Modes
+
+- **Subscription**: One-time payment for ongoing access
+- **Pay per use**: Payment per service invocation (requires contracting provider)
+
+</Step>
+
+<Step title="Review and Submit">
+
+Review your asset configuration in the preview screen:
+
+- Verify all metadata fields
+- Check file access configuration
+- Confirm pricing and policies
+- Accept portal Terms and Conditions
+
+**Publishing Process**
+
+The publish operation consists of 3 blockchain transactions:
+
+```tsx
+// 1. Create NFT & datatokens & pricing
+const { erc721Address, datatokenAddress, txHash } = 
+  await createTokensAndPricing(
+    values, 
+    accountId, 
+    config, 
+    nftFactory
+  )
+
+// 2. Construct and encrypt DDO
+const ddo = await transformPublishFormToDdo(
+  values,
+  datatokenAddress,
+  erc721Address
+)
+const ddoEncrypted = await ProviderInstance.encrypt(
+  ddo,
+  ddo.chainId,
+  providerUrl,
+  abortController
+)
+
+// 3. Write DDO into NFT metadata
+const tx = await setNFTMetadataAndTokenURI(
+  ddo,
+  accountId,
+  signer,
+  values.metadata.nft,
+  abortController
+)
+```
+
+<Note>
+If a step fails, you can retry from that step without repeating successful transactions.
+</Note>
+
+</Step>
+
+</Steps>
+
+## Using Automation Wallet
+
+You can use an automation wallet to publish assets without manual transaction confirmations:
+
+```tsx
+// Automation wallet is used if enabled
+useEffect(() => {
+  if (isAutomationEnabled && autoWallet?.address) {
+    setAccountIdToUse(autoWallet.address)
+    setSignerToUse(autoWallet)
+  } else {
+    setAccountIdToUse(accountId)
+    setSignerToUse(signer)
+  }
+}, [isAutomationEnabled, autoWallet, accountId, signer])
+```
+
+See the [Automation Wallet guide](/guides/automation) for setup instructions.
+
+## After Publishing
+
+Once published successfully:
+
+1. Your asset receives a unique DID (Decentralized Identifier)
+2. The asset appears in search results and your profile
+3. You can edit metadata at any time (requires transaction)
+4. You can monitor downloads/compute jobs in your profile
+
+**Asset Management**
+
+Navigate to your asset page to:
+- Edit metadata and pricing
+- View consumption statistics
+- Monitor compute jobs (for compute assets)
+- Manage access controls
+
+## Troubleshooting
+
+### Transaction Failures
+
+**Insufficient funds**
+- Ensure you have enough native tokens for gas fees
+- Check token balance matches pricing requirements
+
+**Provider encryption failed**
+- Verify file URL is publicly accessible
+- Check provider service is online
+- Ensure file size doesn't exceed limits (1 GB for compute)
+
+**Metadata write failed**
+- Increase gas limit if transaction runs out of gas
+- Retry the specific failed step
+- Check network connection stability
+
+### File Validation Issues
+
+**File not accessible**
+- Remove firewall or authentication requirements
+- Test URL in browser or curl
+- For APIs, verify headers are correct
+
+**IPFS CID invalid**
+- Ensure CID is properly formatted
+- Verify content is pinned and accessible
+
+### Algorithm Publishing
+
+**Docker image checksum mismatch**
+```bash
+# Get correct checksum from Docker Hub or registry
+docker pull oceanprotocol/algo_dockers:python-panda
+docker inspect --format='{{.RepoDigests}}' oceanprotocol/algo_dockers:python-panda
+```
+
+**Container configuration errors**
+- Verify entrypoint command is valid
+- Test algorithm locally before publishing
+- Check environment variable requirements
+
+## Best Practices
+
+1. **Use descriptive metadata**: Help users discover and understand your asset
+2. **Set appropriate pricing**: Consider market rates and data value
+3. **Configure access policies**: Use allowlists for controlled access
+4. **Test file access**: Verify URLs are accessible before publishing
+5. **Provide samples**: Add sample files for datasets when possible
+6. **Keep algorithms private**: Enable privacy for proprietary algorithms
+7. **Monitor consumption**: Track usage and adjust pricing as needed
+8. **Update metadata**: Keep descriptions current as data evolves
+
+## Related Resources
+
+- [Consuming Assets](/guides/consuming-assets)
+- [Compute-to-Data Jobs](/guides/compute-jobs)
+- [Wallet Setup](/guides/wallet-setup)
+- [Automation Features](/guides/automation)
+
+## Code References
+
+Key implementation files:
+- Publishing flow: `src/components/Publish/index.tsx:260-293`
+- Metadata configuration: `src/components/Publish/Metadata/index.tsx`
+- Validation logic: `src/components/Publish/_validation.ts`
+- Type definitions: `src/components/Publish/_types.ts`

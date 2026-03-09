@@ -1,0 +1,720 @@
+---
+title: 'Asset Publishing'
+description: 'Publish datasets, algorithms, and SaaS services to the AgrospAI Data Space Portal'
+icon: 'upload'
+---
+
+Publish your data assets to the AgrospAI marketplace and monetize your datasets, algorithms, and services. The publishing workflow guides you through metadata creation, pricing configuration, and blockchain deployment.
+
+## Publishing Overview
+
+The asset publishing process consists of three main steps:
+
+<Steps>
+  <Step title="Create NFT & Datatokens">
+    Deploy an ERC721 NFT representing your asset and create datatokens for access control.
+  </Step>
+  
+  <Step title="Construct & Encrypt DDO">
+    Build the Decentralized Data Object (DDO) containing all asset metadata and encrypt it.
+  </Step>
+  
+  <Step title="Write Metadata to NFT">
+    Store the encrypted DDO in the NFT's metadata, making your asset discoverable.
+  </Step>
+</Steps>
+
+## Publishing Component Architecture
+
+The main publishing component orchestrates the entire workflow:
+
+```tsx
+// From: src/components/Publish/index.tsx
+export default function PublishPage({
+  content
+}: {
+  content: { title: string; description: string; warning: string }
+}): ReactElement {
+  const { address: accountId } = useAccount()
+  const { data: signer } = useSigner()
+  const { chain } = useNetwork()
+  const nftFactory = useNftFactory()
+
+  // State for each publish step
+  const [feedback, setFeedback] = useState(initialPublishFeedback)
+  const [erc721Address, setErc721Address] = useState<string>()
+  const [datatokenAddress, setDatatokenAddress] = useState<string>()
+  const [ddo, setDdo] = useState<DDO>()
+  const [ddoEncrypted, setDdoEncrypted] = useState<string>()
+  const [did, setDid] = useState<string>()
+
+  return (
+    <Formik
+      initialValues={initialValues}
+      validationSchema={validationSchema}
+      onSubmit={async (values) => {
+        await handleSubmit(values)
+      }}
+    >
+      {({ values }) => (
+        <Form className={styles.form}>
+          <Navigation />
+          <Steps feedback={feedback} />
+          <Actions scrollToRef={scrollToRef} did={did} />
+        </Form>
+      )}
+    </Formik>
+  )
+}
+```
+
+<Info>
+  The publishing form uses Formik for state management and validation, ensuring all required fields are completed before submission.
+</Info>
+
+## Step 1: Create NFT & Datatokens
+
+The first step deploys smart contracts for your asset:
+
+```tsx
+// From: src/components/Publish/index.tsx
+async function create(values: FormPublishData): Promise<{
+  erc721Address: string
+  datatokenAddress: string
+}> {
+  setFeedback((prevState) => ({
+    ...prevState,
+    '1': {
+      ...prevState['1'],
+      status: 'active',
+      errorMessage: null
+    }
+  }))
+
+  try {
+    const config = getOceanConfig(chain?.id)
+    LoggerInstance.log('[publish] using config: ', config)
+
+    const { erc721Address, datatokenAddress, txHash } =
+      await createTokensAndPricing(values, accountIdToUse, config, nftFactory)
+
+    const isSuccess = Boolean(erc721Address && datatokenAddress && txHash)
+    if (!isSuccess) throw new Error('No Token created. Please try again.')
+
+    LoggerInstance.log('[publish] createTokensAndPricing tx', txHash)
+    LoggerInstance.log('[publish] erc721Address', erc721Address)
+    LoggerInstance.log('[publish] datatokenAddress', datatokenAddress)
+
+    setFeedback((prevState) => ({
+      ...prevState,
+      '1': {
+        ...prevState['1'],
+        status: 'success',
+        txHash
+      }
+    }))
+
+    return { erc721Address, datatokenAddress }
+  } catch (error) {
+    LoggerInstance.error('[publish] error', error.message)
+    setFeedback((prevState) => ({
+      ...prevState,
+      '1': {
+        ...prevState['1'],
+        status: 'error',
+        errorMessage: error.message
+      }
+    }))
+  }
+}
+```
+
+<Warning>
+  This step requires a blockchain transaction and gas fees. Ensure you have sufficient balance in your connected wallet.
+</Warning>
+
+## Step 2: Construct & Encrypt DDO
+
+The DDO (Decentralized Data Object) contains all metadata and is encrypted by the provider:
+
+```tsx
+// From: src/components/Publish/index.tsx
+async function encrypt(
+  values: FormPublishData,
+  erc721Address: string,
+  datatokenAddress: string
+): Promise<{ ddo: DDO; ddoEncrypted: string }> {
+  setFeedback((prevState) => ({
+    ...prevState,
+    '2': {
+      ...prevState['2'],
+      status: 'active',
+      errorMessage: null
+    }
+  }))
+
+  try {
+    if (!datatokenAddress || !erc721Address)
+      throw new Error('No NFT or Datatoken received. Please try again.')
+
+    const ddo = await transformPublishFormToDdo(
+      values,
+      datatokenAddress,
+      erc721Address
+    )
+
+    if (!ddo) throw new Error('No DDO received. Please try again.')
+
+    setDdo(ddo)
+    LoggerInstance.log('[publish] Got new DDO', ddo)
+
+    let ddoEncrypted: string
+    try {
+      ddoEncrypted = await ProviderInstance.encrypt(
+        ddo,
+        ddo.chainId,
+        customProviderUrl || values.services[0].providerUrl.url,
+        newAbortController()
+      )
+    } catch (error) {
+      const message = getErrorMessage(error.message)
+      LoggerInstance.error('[Provider Encrypt] Error:', message)
+    }
+
+    if (!ddoEncrypted)
+      throw new Error('No encrypted DDO received. Please try again.')
+
+    setDdoEncrypted(ddoEncrypted)
+    LoggerInstance.log('[publish] Got encrypted DDO', ddoEncrypted)
+
+    setFeedback((prevState) => ({
+      ...prevState,
+      '2': {
+        ...prevState['2'],
+        status: 'success'
+      }
+    }))
+    return { ddo, ddoEncrypted }
+  } catch (error) {
+    LoggerInstance.error('[publish] error', error.message)
+    setFeedback((prevState) => ({
+      ...prevState,
+      '2': {
+        ...prevState['2'],
+        status: 'error',
+        errorMessage: error.message
+      }
+    }))
+  }
+}
+```
+
+<Note>
+  Encryption is handled by the Ocean Protocol provider to ensure data URLs remain private while metadata is publicly discoverable.
+</Note>
+
+## Step 3: Write Metadata to NFT
+
+The final step stores the encrypted DDO in the NFT:
+
+```tsx
+// From: src/components/Publish/index.tsx
+async function publish(
+  values: FormPublishData,
+  ddo: DDO,
+  ddoEncrypted: string
+): Promise<{ did: string }> {
+  setFeedback((prevState) => ({
+    ...prevState,
+    '3': {
+      ...prevState['3'],
+      status: 'active',
+      errorMessage: null
+    }
+  }))
+
+  try {
+    if (!ddo || !ddoEncrypted)
+      throw new Error('No DDO received. Please try again.')
+
+    const res = await setNFTMetadataAndTokenURI(
+      ddo,
+      accountIdToUse,
+      signerToUse,
+      values.metadata.nft,
+      newAbortController()
+    )
+    const tx = await res.wait()
+    if (!tx?.transactionHash)
+      throw new Error(
+        'Metadata could not be written into the NFT. Please try again.'
+      )
+
+    LoggerInstance.log('[publish] setMetadata result', tx)
+
+    setFeedback((prevState) => ({
+      ...prevState,
+      '3': {
+        ...prevState['3'],
+        status: tx ? 'success' : 'error',
+        txHash: tx?.transactionHash
+      }
+    }))
+
+    return { did: ddo.id }
+  } catch (error) {
+    LoggerInstance.error('[publish] error', error.message)
+    setFeedback((prevState) => ({
+      ...prevState,
+      '3': {
+        ...prevState['3'],
+        status: 'error',
+        errorMessage: error.message
+      }
+    }))
+  }
+}
+```
+
+## Metadata Configuration
+
+Define comprehensive metadata for your asset:
+
+```tsx
+// From: src/components/Publish/Metadata/index.tsx
+export default function MetadataFields(): ReactElement {
+  const { values, setFieldValue } = useFormikContext<FormPublishData>()
+
+  const assetTypeOptions: BoxSelectionOption[] = [
+    {
+      name: 'dataset',
+      title: 'Dataset',
+      checked: values.metadata.type === 'dataset',
+      icon: <IconDataset />
+    },
+    {
+      name: 'algorithm',
+      title: 'Algorithm',
+      checked: values.metadata.type === 'algorithm',
+      icon: <IconAlgorithm />
+    },
+    {
+      name: 'saas',
+      title: 'SaaS',
+      checked: values.services[0]?.files[0]?.type === 'saas',
+      icon: <IconSaas />
+    }
+  ]
+
+  return (
+    <>
+      <Field
+        {...getFieldContent('nft', content.metadata.fields)}
+        component={Input}
+        name="metadata.nft"
+      />
+      
+      <Field
+        {...getFieldContent('type', content.metadata.fields)}
+        component={Input}
+        name="metadata.type"
+        options={assetTypeOptions}
+      />
+      
+      <Field
+        {...getFieldContent('name', content.metadata.fields)}
+        component={Input}
+        name="metadata.name"
+      />
+      
+      <Field
+        {...getFieldContent('description', content.metadata.fields)}
+        component={Input}
+        name="metadata.description"
+        rows={7}
+      />
+      
+      <Field
+        {...getFieldContent('tags', content.metadata.fields)}
+        component={Input}
+        name="metadata.tags"
+      />
+    </>
+  )
+}
+```
+
+### Asset Types
+
+<Tabs>
+  <Tab title="Dataset">
+    Standard data files (CSV, JSON, Parquet, etc.) that can be downloaded or used in compute-to-data.
+    
+    ```tsx
+    {
+      type: 'dataset',
+      name: 'Agricultural Yield Data 2024',
+      description: 'Crop yield measurements across multiple farms',
+      files: [{ url: 'https://...', type: 'url' }]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Algorithm">
+    Containerized code that runs on datasets. Can be public or private.
+    
+    ```tsx
+    {
+      type: 'algorithm',
+      dockerImage: 'python:3.10',
+      dockerImageChecksum: 'sha256:abc123...',
+      entrypoint: 'python $ALGO'
+    }
+    ```
+  </Tab>
+  
+  <Tab title="SaaS">
+    Software-as-a-Service offerings with external redirect URLs.
+    
+    ```tsx
+    {
+      type: 'dataset',
+      files: [{ type: 'saas', url: 'https://service.com' }],
+      saas: {
+        redirectUrl: 'https://service.com/access',
+        paymentMode: 'PAYPERUSE'
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Algorithm-Specific Configuration
+
+When publishing algorithms, configure Docker container settings:
+
+```tsx
+// From: src/components/Publish/Metadata/index.tsx
+{values.metadata.type === 'algorithm' && (
+  <>
+    <Field
+      {...getFieldContent('dockerImage', content.metadata.fields)}
+      component={Input}
+      name="metadata.dockerImage"
+      options={dockerImageOptions}
+    />
+    
+    {values.metadata.dockerImage === 'custom' && (
+      <>
+        <Field
+          {...getFieldContent('dockerImageCustom', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustom"
+          placeholder="node:latest"
+        />
+        
+        <Field
+          {...getFieldContent('dockerImageChecksum', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustomChecksum"
+          placeholder="sha256:abc123..."
+        />
+        
+        <Field
+          {...getFieldContent('dockerImageCustomEntrypoint', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustomEntrypoint"
+          placeholder="node $ALGO"
+        />
+      </>
+    )}
+    
+    <Field
+      {...getFieldContent('usesConsumerParameters', content.metadata.fields)}
+      component={Input}
+      name="metadata.usesConsumerParameters"
+    />
+  </>
+)}
+```
+
+<Info>
+  Preset Docker images are available for common environments (Python, R, Node.js). Choose "Custom" to specify your own container.
+</Info>
+
+## GDPR Compliance for Datasets
+
+For datasets containing personally identifiable information (PII):
+
+```tsx
+// From: src/components/Publish/Metadata/index.tsx
+{values.metadata.type === 'dataset' && (
+  <>
+    <Field
+      {...getFieldContent('containsPII', content.metadata.fields)}
+      component={Input}
+      name="metadata.gaiaXInformation.containsPII"
+    />
+
+    {values.metadata.gaiaXInformation.containsPII === true && (
+      <div className={styles.gdpr}>
+        <Field
+          {...getFieldContent('dataController', content.metadata.fields)}
+          component={Input}
+          name="metadata.gaiaXInformation.PIIInformation.legitimateProcessing.dataController"
+        />
+
+        <Field
+          {...getFieldContent('legalBasis', content.metadata.fields)}
+          component={Input}
+          name="metadata.gaiaXInformation.PIIInformation.legitimateProcessing.legalBasis"
+        />
+
+        <Field
+          {...getFieldContent('purpose', content.metadata.fields)}
+          component={Input}
+          name="metadata.gaiaXInformation.PIIInformation.legitimateProcessing.purpose"
+        />
+
+        <Field
+          {...getFieldContent('dataProtectionContactPoint', content.metadata.fields)}
+          component={Input}
+          name="metadata.gaiaXInformation.PIIInformation.legitimateProcessing.dataProtectionContactPoint"
+        />
+      </div>
+    )}
+  </>
+)}
+```
+
+<Warning>
+  Always mark datasets containing PII and provide complete GDPR information. Failure to comply with data protection regulations can result in legal consequences.
+</Warning>
+
+## Pricing Configuration
+
+Configure how users will pay for your asset:
+
+```tsx
+// From: src/components/Publish/Pricing/index.tsx
+export default function PricingFields(): ReactElement {
+  const { approvedBaseTokens } = useMarketMetadata()
+  const { values, setFieldValue } = useFormikContext<FormPublishData>()
+  const { pricing } = values
+
+  function handleTabChange(tabName: string) {
+    const type =
+      tabName.toLowerCase() === 'priced' ? 'fixed' : tabName.toLowerCase()
+    setFieldValue('pricing.type', type)
+    setFieldValue('pricing.price', 0)
+    setFieldValue('pricing.freeAgreement', false)
+    type !== 'free' && setFieldValue('pricing.amountDataToken', 1000)
+  }
+
+  const tabs = [
+    {
+      title: 'Fixed Price',
+      content: (
+        <Fixed
+          approvedBaseTokens={approvedBaseTokens}
+          content={content.create.fixed}
+        />
+      )
+    },
+    {
+      title: 'Free',
+      content: <Free content={content.create.free} />
+    }
+  ]
+
+  return (
+    <Tabs
+      items={tabs}
+      handleTabChange={handleTabChange}
+      showRadio
+    />
+  )
+}
+```
+
+### Fixed Pricing
+
+Set a specific price in your chosen token:
+
+```tsx
+// From: src/components/Publish/Pricing/Fixed.tsx
+<>
+  <Field
+    label="Price"
+    component={Input}
+    name="pricing.price"
+    type="number"
+    min="0"
+    step="0.01"
+    placeholder="10.00"
+  />
+  
+  <Field
+    label="Base Token"
+    component={Input}
+    name="pricing.baseToken"
+    options={approvedBaseTokens}
+    help="Token buyers will pay with"
+  />
+  
+  <Field
+    label="Datatoken Amount"
+    component={Input}
+    name="pricing.amountDataToken"
+    type="number"
+    min="1"
+    help="Number of datatokens to mint"
+  />
+</>
+```
+
+## Service Configuration
+
+Define access methods for your asset:
+
+```tsx
+// Service types:
+// - 'access': Direct download
+// - 'compute': Compute-to-data only
+
+{
+  type: values.metadata.type === 'algorithm' ? 'compute' : 'access',
+  files: [
+    {
+      url: 'https://example.com/data.csv',
+      type: 'url'
+    }
+  ],
+  timeout: 86400, // 24 hours
+  consumerParameters: [] // Optional runtime parameters
+}
+```
+
+<Note>
+  Setting service type to 'compute' prevents direct downloads, enabling privacy-preserving analytics through Compute-to-Data.
+</Note>
+
+## Retry Failed Steps
+
+The publishing flow supports retrying failed steps:
+
+```tsx
+// From: src/components/Publish/index.tsx
+async function handleSubmit(values: FormPublishData) {
+  // Sync with state to enable retry
+  let _erc721Address = erc721Address
+  let _datatokenAddress = datatokenAddress
+  let _ddo = ddo
+  let _ddoEncrypted = ddoEncrypted
+  let _did = did
+
+  // Only execute steps that haven't completed
+  if (!_erc721Address || !_datatokenAddress) {
+    const { erc721Address, datatokenAddress } = await create(values)
+    _erc721Address = erc721Address
+    _datatokenAddress = datatokenAddress
+    setErc721Address(erc721Address)
+    setDatatokenAddress(datatokenAddress)
+  }
+
+  if (!_ddo || !_ddoEncrypted) {
+    const { ddo, ddoEncrypted } = await encrypt(
+      values,
+      _erc721Address,
+      _datatokenAddress
+    )
+    _ddo = ddo
+    _ddoEncrypted = ddoEncrypted
+    setDdo(ddo)
+    setDdoEncrypted(ddoEncrypted)
+  }
+
+  if (!_did) {
+    const { did } = await publish(values, _ddo, _ddoEncrypted)
+    _did = did
+    setDid(did)
+  }
+}
+```
+
+<Info>
+  If a step fails, you can retry without repeating successful steps. This saves time and gas fees.
+</Info>
+
+## Network Selection
+
+Choose which blockchain networks your asset will be available on:
+
+```tsx
+<AvailableNetworks
+  selectedNetworks={values.user.chainId}
+  onNetworkChange={(chainId) => setFieldValue('user.chainId', chainId)}
+/>
+```
+
+Supported networks:
+- Ethereum Mainnet
+- Polygon
+- BNB Smart Chain  
+- Moonbeam
+- Energy Web Chain
+
+## Publishing Success
+
+Once all steps complete successfully, your asset receives a DID (Decentralized Identifier):
+
+```
+did:op:7Bce67697eD2858d0683c631DdE7Af823b7eea38
+```
+
+Your asset is now:
+- ✅ Discoverable in marketplace search
+- ✅ Available for purchase/access
+- ✅ Indexed by Aquarius metadata cache
+- ✅ Secured by blockchain smart contracts
+
+## Best Practices
+
+<Steps>
+  <Step title="Provide Rich Metadata">
+    Include detailed descriptions, relevant tags, and sample data to help users discover your asset.
+  </Step>
+  
+  <Step title="Test Your Files">
+    Verify file URLs are accessible and checksums are correct before publishing.
+  </Step>
+  
+  <Step title="Set Appropriate Pricing">
+    Research similar assets to price competitively while ensuring fair compensation.
+  </Step>
+  
+  <Step title="Consider Privacy">
+    Use Compute-to-Data for sensitive datasets to maintain data privacy.
+  </Step>
+  
+  <Step title="Document GDPR Compliance">
+    If your dataset contains PII, complete all GDPR fields to ensure legal compliance.
+  </Step>
+</Steps>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Data Marketplace" icon="store" href="/features/data-marketplace">
+    Learn about the marketplace ecosystem
+  </Card>
+  <Card title="Compute-to-Data" icon="server" href="/features/compute-to-data">
+    Enable privacy-preserving computation on your datasets
+  </Card>
+  <Card title="Asset Discovery" icon="magnifying-glass" href="/features/asset-discovery">
+    How users find and evaluate assets
+  </Card>
+  <Card title="Wallet Integration" icon="wallet" href="/features/wallet-integration">
+    Connect your wallet to publish assets
+  </Card>
+</CardGroup>

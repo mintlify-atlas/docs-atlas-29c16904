@@ -1,0 +1,449 @@
+---
+title: Barge Integration
+description: Set up local Ocean Protocol components using Barge for advanced development
+---
+
+Using Barge allows you to run all Ocean Protocol components locally for development and testing. This is recommended for advanced users who need full control over the development environment.
+
+<Warning>
+If you're new to the AgrospAI Data Space Portal, we recommend starting with remote networks before setting up Barge. See the [Local Development Setup](/development/local-development) guide first.
+</Warning>
+
+## What is Barge?
+
+Barge is a Docker Compose setup that runs all Ocean Protocol components locally:
+
+- **Ganache** - Local Ethereum network
+- **Aquarius** - Metadata cache and search
+- **Provider** - Data service provider
+- **The Graph** - Indexing and querying
+- **Subgraph** - Ocean Protocol subgraph
+
+## Prerequisites
+
+Before setting up Barge, ensure you have:
+
+- **Docker** and **Docker Compose** installed
+- **Git** for cloning repositories
+- **Node.js 20** (as specified in `.nvmrc`)
+- The AgrospAI portal repository cloned and dependencies installed
+
+<Info>
+Barge requires significant system resources. Ensure you have at least 8GB RAM available for Docker.
+</Info>
+
+## Setup Instructions
+
+<Steps>
+  <Step title="Clone Barge Repository">
+    Clone the Barge repository in a separate directory:
+
+    ```bash
+    git clone git@github.com:oceanprotocol/barge.git
+    cd barge
+    ```
+  </Step>
+
+  <Step title="Start Ocean Components">
+    Start Barge with local Ganache and The Graph nodes:
+
+    ```bash
+    ./start_ocean.sh --with-thegraph
+    ```
+
+    <Info>
+    This will take several minutes as it:
+    - Pulls Docker images
+    - Starts all services
+    - Deploys contracts to Ganache
+    - Indexes the subgraph
+    </Info>
+
+    Wait for the process to complete. You'll see output indicating all services are running.
+  </Step>
+
+  <Step title="Import Contract Artifacts">
+    After Barge completes deployment, import the contract addresses to your portal:
+
+    ```bash
+    cd /path/to/market
+    npm run set-barge-env
+    ```
+
+    This script:
+    - Reads deployed contract addresses from Barge
+    - Sets environment variables in your `.env` file
+    - Configures endpoints for local services
+  </Step>
+
+  <Step title="Update Chain Configuration">
+    Add Ganache's chain ID to the supported chains list in `app.config.js`:
+
+    ```javascript app.config.js
+    module.exports = {
+      // ... other config
+      chainIdsSupported: [
+        1, // Ethereum Mainnet
+        5, // Goerli
+        8996, // Barge Ganache - Add this line
+        // ... other chains
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Start the Portal">
+    Start the development server:
+
+    <CodeGroup>
+      ```bash npm
+      npm start
+      ```
+
+      ```bash yarn
+      yarn start
+      ```
+    </CodeGroup>
+
+    The portal will now connect to your local Barge components at `http://localhost:8000`.
+  </Step>
+</Steps>
+
+## macOS-Specific Configuration
+
+On macOS, additional network configuration is required due to Docker networking constraints.
+
+### Provider URL Configuration
+
+<Accordion title="Update Provider URL for macOS">
+  On macOS, replace Barge's internal IP with `127.0.0.1` for provider access:
+
+  **Option 1: Environment Variable** (Recommended)
+
+  ```bash .env
+  NEXT_PUBLIC_PROVIDER_URL="http://127.0.0.1:8030"
+  ```
+
+  **Option 2: Code Modification**
+
+  In `src/@utils/provider.ts`, update all methods that call `ProviderInstance`:
+
+  ```typescript src/@utils/provider.ts
+  const providerUrl = '127.0.0.1:8030' // Override for macOS
+
+  // Apply to methods:
+  // - getEncryptedFiles
+  // - getFileDidInfo
+  // - downloadFile
+  // etc.
+  ```
+
+  Also update:
+  - `src/@utils/nft.ts` in `setNFTMetadataAndTokenURI` and `setNftMetadata`
+  - `src/components/Publish/index.tsx` in the `encrypt` method
+</Accordion>
+
+### Service Endpoint Configuration
+
+<Accordion title="Update Subgraph and Metadata Cache URLs for macOS">
+  Replace internal Docker IPs with localhost:
+
+  ```bash .env
+  # Subgraph - Use 127.0.0.1 instead of 172.15.0.15
+  NEXT_PUBLIC_SUBGRAPH_URI="http://127.0.0.1:9000/subgraphs/name/oceanprotocol/ocean-subgraph"
+
+  # Metadata Cache - Use 127.0.0.1 instead of 172.15.0.5
+  NEXT_PUBLIC_METADATACACHE_URI="http://127.0.0.1:5000"
+
+  # Provider
+  NEXT_PUBLIC_PROVIDER_URL="http://127.0.0.1:8030"
+
+  # RPC
+  NEXT_PUBLIC_RPC_URI="http://127.0.0.1:8545"
+  ```
+</Accordion>
+
+## Environment Variables
+
+After running `npm run set-barge-env`, your `.env` file will include:
+
+```bash .env
+# Barge Development Configuration
+NEXT_PUBLIC_MARKET_DEVELOPMENT='true'
+
+# Contract Addresses (auto-generated from Barge)
+NEXT_PUBLIC_NFT_FACTORY_ADDRESS='0x...'
+NEXT_PUBLIC_OPF_COMMUNITY_FEE_COLECTOR='0x...'
+NEXT_PUBLIC_FIXED_RATE_EXCHANGE_ADDRESS='0x...'
+NEXT_PUBLIC_DISPENSER_ADDRESS='0x...'
+NEXT_PUBLIC_OCEAN_TOKEN_ADDRESS='0x...'
+
+# Local Service Endpoints
+NEXT_PUBLIC_PROVIDER_URL="http://172.15.0.4:8030"
+NEXT_PUBLIC_SUBGRAPH_URI="http://172.15.0.15:8000/subgraphs/name/oceanprotocol/ocean-subgraph"
+NEXT_PUBLIC_METADATACACHE_URI="http://172.15.0.5:5000"
+NEXT_PUBLIC_RPC_URI="http://127.0.0.1:8545"
+```
+
+<Note>
+On macOS, replace the internal Docker IPs (172.15.0.x) with 127.0.0.1 as described above.
+</Note>
+
+## MetaMask Integration
+
+To interact with the local Ganache network through the portal:
+
+<Steps>
+  <Step title="Import Test Account">
+    When Ganache starts, it prints private keys for test accounts. Each account has 100 test ETH.
+
+    Example private key:
+    ```
+    0xc594c6e5def4bab63ac29eed19a134c130388f74f019bc74b8f4389df2837a58
+    ```
+
+    Import this into MetaMask:
+    1. Open MetaMask
+    2. Click account icon → Import Account
+    3. Paste private key
+    4. Click Import
+  </Step>
+
+  <Step title="Add Ganache Network">
+    Add the local Ganache network to MetaMask:
+
+    | Field | Value |
+    |-------|-------|
+    | Network Name | Ganache Local |
+    | RPC URL | http://127.0.0.1:8545 |
+    | Chain ID | 8996 |
+    | Currency Symbol | ETH |
+  </Step>
+
+  <Step title="Switch Network">
+    Switch MetaMask to the Ganache Local network to interact with your local environment.
+  </Step>
+</Steps>
+
+<Warning>
+**Never use Ganache private keys on real networks!** These keys are public and for development only.
+</Warning>
+
+## Common Barge Commands
+
+```bash
+# Start with all components
+./start_ocean.sh --with-thegraph
+
+# Stop all services
+docker-compose down
+
+# Stop and remove volumes (clean slate)
+docker-compose down -v
+
+# View logs for all services
+docker-compose logs -f
+
+# View logs for specific service
+docker-compose logs -f aquarius
+
+# Restart a specific service
+docker-compose restart provider
+```
+
+## Switching Back to Remote Networks
+
+When you want to connect to remote networks again:
+
+<Steps>
+  <Step title="Comment Out Barge Variables">
+    Edit your `.env` file and comment out or remove the Barge-specific variables:
+
+    ```bash .env
+    # Comment out these lines:
+    # NEXT_PUBLIC_MARKET_DEVELOPMENT='true'
+    # NEXT_PUBLIC_NFT_FACTORY_ADDRESS='0x...'
+    # NEXT_PUBLIC_PROVIDER_URL="http://..."
+    # etc.
+    ```
+  </Step>
+
+  <Step title="Restart Development Server">
+    ```bash
+    npm start
+    ```
+
+    The portal will now connect to remote Ocean Protocol networks.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Docker containers won't start">
+    Clean Docker system and retry:
+
+    ```bash
+    # Warning: This removes ALL Docker images and volumes
+    docker system prune --all --volumes
+
+    # Then restart Barge
+    cd barge
+    ./start_ocean.sh --with-thegraph
+    ```
+
+    <Warning>
+    This removes all Docker data, not just Barge. Use with caution.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Contract deployment fails">
+    Ensure Docker has enough resources:
+
+    1. Open Docker Desktop
+    2. Go to Settings → Resources
+    3. Allocate at least 8GB RAM
+    4. Restart Docker
+    5. Retry Barge startup
+  </Accordion>
+
+  <Accordion title="Subgraph not syncing">
+    Check The Graph node logs:
+
+    ```bash
+    docker-compose logs -f graph-node
+    ```
+
+    If stuck, restart the graph node:
+
+    ```bash
+    docker-compose restart graph-node
+    ```
+  </Accordion>
+
+  <Accordion title="MetaMask transaction errors">
+    Common issues:
+
+    **Wrong network**: Ensure MetaMask is on Ganache (Chain ID 8996)
+
+    **Nonce issues**: Reset MetaMask account:
+    1. Settings → Advanced → Reset Account
+
+    **Insufficient gas**: Ganache has gas limits. Try lower gas amounts.
+  </Accordion>
+
+  <Accordion title="Portal can't connect to Barge services">
+    Verify services are running:
+
+    ```bash
+    docker-compose ps
+    ```
+
+    All services should show "Up". Check specific service:
+
+    ```bash
+    # Test Aquarius
+    curl http://localhost:5000/api/aquarius/health
+
+    # Test Provider
+    curl http://localhost:8030/api/services/health
+
+    # Test Subgraph
+    curl http://localhost:9000/subgraphs/name/oceanprotocol/ocean-subgraph
+    ```
+  </Accordion>
+
+  <Accordion title="set-barge-env script fails">
+    Ensure Barge is fully deployed before running:
+
+    ```bash
+    # Check Barge logs for "Deployment complete"
+    cd barge
+    docker-compose logs | grep -i "complete\|ready"
+
+    # Then retry
+    cd /path/to/market
+    npm run set-barge-env
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Service Endpoints Reference
+
+When Barge is running, these services are available:
+
+| Service | Default URL | macOS URL | Purpose |
+|---------|-------------|-----------|----------|
+| Ganache | http://127.0.0.1:8545 | (same) | Local blockchain |
+| Aquarius | http://172.15.0.5:5000 | http://127.0.0.1:5000 | Metadata cache |
+| Provider | http://172.15.0.4:8030 | http://127.0.0.1:8030 | Data service |
+| Subgraph | http://172.15.0.15:8000 | http://127.0.0.1:9000 | GraphQL API |
+| Graph Node | http://127.0.0.1:8020 | (same) | Indexing service |
+| IPFS | http://127.0.0.1:5001 | (same) | File storage |
+
+## Advanced Configuration
+
+### Custom Barge Configuration
+
+You can customize Barge behavior by editing `docker-compose.yml` in the Barge directory:
+
+```yaml docker-compose.yml
+# Example: Change Provider port
+services:
+  provider:
+    ports:
+      - "8031:8030"  # Host:Container
+```
+
+### Testing Smart Contracts
+
+With Barge running, you can deploy and test custom smart contracts:
+
+```bash
+# Connect to Ganache
+export RPC_URL=http://127.0.0.1:8545
+
+# Deploy using your preferred tool (Hardhat, Truffle, etc.)
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Resource Management" icon="gauge-high">
+    - Stop Barge when not needed to free resources
+    - Use `docker-compose down -v` for clean restarts
+    - Monitor Docker Desktop for resource usage
+  </Card>
+  <Card title="Development Workflow" icon="code-branch">
+    - Use Barge for feature development and testing
+    - Test with remote networks before production
+    - Keep Barge updated with latest images
+  </Card>
+  <Card title="Data Persistence" icon="database">
+    - Barge data is ephemeral by default
+    - Use volumes for persistent data if needed
+    - Back up test data before cleaning Docker
+  </Card>
+  <Card title="Network Isolation" icon="network-wired">
+    - Keep Barge accounts separate from real accounts
+    - Never use Ganache keys on mainnet
+    - Test thoroughly before deploying to production
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="flask" href="/development/testing">
+    Learn how to write and run tests with your local setup
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system architecture
+  </Card>
+  <Card title="Data Sources" icon="database" href="/reference/data-sources">
+    Learn about Aquarius, Subgraph, and Provider
+  </Card>
+  <Card title="Local Development" icon="laptop-code" href="/development/local-development">
+    Return to local development guide
+  </Card>
+</CardGroup>

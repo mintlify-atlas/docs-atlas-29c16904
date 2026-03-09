@@ -1,0 +1,619 @@
+---
+title: Compute-to-Data Jobs
+description: Run privacy-preserving computations on datasets using the Compute-to-Data feature
+---
+
+Compute-to-Data (C2D) enables algorithms to process datasets without exposing the raw data. Run computations on private datasets while maintaining data sovereignty and privacy.
+
+## What is Compute-to-Data?
+
+Compute-to-Data allows:
+
+- **Data Privacy**: Data never leaves the provider's infrastructure
+- **Algorithm Execution**: Run code on remote datasets
+- **Result Access**: Obtain computation outputs and logs
+- **Collaborative Computing**: Multiple parties can compute without sharing data
+
+## Prerequisites
+
+- Web3 wallet with sufficient funds
+- Access to a compute-enabled dataset
+- Compatible algorithm (published or selected)
+- Both dataset and algorithm datatokens (or payment)
+
+## Compute Job Workflow
+
+<Steps>
+
+<Step title="Select a Compute Dataset">
+
+Find datasets that support Compute-to-Data:
+
+**Dataset Requirements**
+- Access type set to "Compute"
+- Compute environment configured
+- Provider supports C2D operations
+
+```tsx
+// Check if asset supports compute
+const computeService = getServiceByName(asset, 'compute')
+
+if (computeService && computeService.type === 'compute') {
+  // Dataset is compute-enabled
+}
+```
+
+**Navigate to Asset Page**
+- View compute-specific information
+- Check available compute environments
+- Review pricing and fees
+
+</Step>
+
+<Step title="Choose an Algorithm">
+
+Select an algorithm compatible with the dataset:
+
+```tsx
+// Get algorithms compatible with dataset
+const algorithmsAssets = await getAlgorithmsForAsset(
+  asset, 
+  cancelToken
+)
+
+const algorithmList = await getAlgorithmAssetSelectionList(
+  asset,
+  algorithmsAssets,
+  accountId
+)
+```
+
+**Algorithm Selection Criteria**
+- Must be in dataset's allowed algorithms list
+- Compatible with compute environment
+- Appropriate data processing capabilities
+- Access permissions (allowlist/denylist)
+
+**Algorithm Types**
+
+1. **Public Algorithms**: Downloadable and inspectable
+2. **Private Algorithms**: Only executable in C2D, code not accessible
+
+```tsx
+// Private algorithm configuration
+{
+  algorithmPrivacy: true,  // Prevents downloading
+  access: 'compute'        // Only compute access
+}
+```
+
+<Tip>
+If the dataset allows, you can use your own published algorithm or select from the marketplace.
+</Tip>
+
+</Step>
+
+<Step title="Configure Compute Environment">
+
+Select the compute environment for job execution:
+
+```tsx
+// Fetch available compute environments
+const computeEnvs = await getComputeEnvironments(
+  asset.services[0].serviceEndpoint,
+  asset.chainId
+)
+
+setComputeEnvs(computeEnvs || [])
+```
+
+**Environment Specifications**
+- CPU/Memory allocation
+- Maximum job duration
+- Storage capacity
+- Network restrictions
+- GPU availability (if applicable)
+
+**Auto-Selection**
+```tsx
+// Auto-select if only one environment available
+if (computeEnvs?.length === 1) {
+  setFieldValue('computeEnv', computeEnvs[0].id)
+}
+```
+
+</Step>
+
+<Step title="Set Consumer Parameters">
+
+Provide required inputs for the computation:
+
+**Dataset Parameters**
+```tsx
+const dataServiceParams = parseConsumerParameterValues(
+  values?.dataServiceParams,
+  asset.services[0].consumerParameters
+)
+```
+
+**Algorithm Service Parameters**
+```tsx
+const algoServiceParams = parseConsumerParameterValues(
+  values?.algoServiceParams,
+  selectedAlgorithmAsset?.services[0].consumerParameters
+)
+```
+
+**Algorithm Custom Parameters**
+```tsx
+const algoParams = parseConsumerParameterValues(
+  values?.algoParams,
+  selectedAlgorithmAsset?.metadata?.algorithm?.consumerParameters
+)
+```
+
+Parameter examples:
+- Filter criteria
+- Processing options
+- Output format preferences
+- Algorithm hyperparameters
+
+</Step>
+
+<Step title="Review Pricing and Start Job">
+
+**Cost Breakdown**
+
+```tsx
+interface ComputePricing {
+  datasetPrice: string      // Dataset access price
+  algorithmPrice: string    // Algorithm usage price
+  providerFee: string       // Compute execution fee
+  validUntil: string        // Price validity duration
+}
+```
+
+**Price Calculation**
+```tsx
+// Initialize pricing
+const initializedProvider = await initializeProviderForCompute(
+  asset,
+  selectedAlgorithmAsset,
+  accountId,
+  selectedComputeEnv
+)
+
+// Set dataset price
+await setDatasetPrice(
+  initializedProvider?.datasets?.[0]?.providerFee
+)
+
+// Set algorithm price
+await setAlgoPrice(
+  initializedProvider?.algorithm?.providerFee
+)
+
+// Calculate total with provider fees
+const providerFees = await setComputeFees(initializedProvider)
+```
+
+**Start Compute Job**
+
+```tsx
+async function startJob(userCustomParameters) {
+  // 1. Verify dataset is orderable
+  const allowed = await isOrderable(
+    asset,
+    computeService.id,
+    computeAlgorithm,
+    selectedAlgorithmAsset
+  )
+  
+  if (!allowed) {
+    throw new Error('Dataset not orderable with selected algorithm')
+  }
+
+  // 2. Order algorithm access
+  const algorithmOrderTx = await handleComputeOrder(
+    signer,
+    selectedAlgorithmAsset,
+    algoOrderPriceAndFees,
+    accountId,
+    initializedProviderResponse.algorithm,
+    hasAlgoAssetDatatoken,
+    selectedComputeEnv.consumerAddress
+  )
+
+  // 3. Order dataset access
+  const datasetOrderTx = await handleComputeOrder(
+    signer,
+    asset,
+    datasetOrderPriceAndFees,
+    accountId,
+    initializedProviderResponse.datasets[0],
+    hasDatatoken,
+    selectedComputeEnv.consumerAddress
+  )
+
+  // 4. Start compute job
+  const computeAsset: ComputeAsset = {
+    documentId: asset.id,
+    serviceId: asset.services[0].id,
+    transferTxId: datasetOrderTx,
+    userdata: userCustomParameters?.dataServiceParams
+  }
+  
+  const computeAlgorithm: ComputeAlgorithm = {
+    documentId: selectedAlgorithmAsset.id,
+    serviceId: selectedAlgorithmAsset.services[0].id,
+    transferTxId: algorithmOrderTx,
+    algocustomdata: userCustomParameters?.algoParams,
+    userdata: userCustomParameters?.algoServiceParams
+  }
+  
+  const output: ComputeOutput = {
+    publishAlgorithmLog: true,
+    publishOutput: true
+  }
+
+  const response = await ProviderInstance.computeStart(
+    asset.services[0].serviceEndpoint,
+    signer,
+    selectedComputeEnv?.id,
+    computeAsset,
+    computeAlgorithm,
+    abortController,
+    null,
+    output
+  )
+
+  return response
+}
+```
+
+<Note>
+You'll be prompted to approve transactions for both the dataset and algorithm access, plus the compute job initiation.
+</Note>
+
+</Step>
+
+</Steps>
+
+## Monitoring Compute Jobs
+
+Track job progress and retrieve results:
+
+### Job Status Dashboard
+
+```tsx
+// Fetch compute jobs for user
+const computeJobs = await getComputeJobs(
+  [asset?.chainId],
+  address,
+  asset,
+  cancelToken
+)
+
+// Include automation wallet jobs
+if (autoWallet) {
+  const autoComputeJobs = await getComputeJobs(
+    [asset?.chainId],
+    autoWallet?.address,
+    asset,
+    cancelToken
+  )
+  computeJobs.push(...autoComputeJobs.computeJobs)
+}
+```
+
+**Job States**
+- `Scheduled`: Job queued for execution
+- `Running`: Computation in progress
+- `Completed`: Job finished successfully
+- `Failed`: Execution error occurred
+- `Stopped`: Manually terminated
+
+### Viewing Results
+
+**On Asset Page**
+```tsx
+<ComputeHistory
+  title="Your Compute Jobs"
+  refetchJobs={() => setRefetchJobs(!refetchJobs)}
+>
+  <ComputeJobs
+    minimal
+    jobs={jobs}
+    isLoading={isLoadingJobs}
+    refetchJobs={() => setRefetchJobs(!refetchJobs)}
+  />
+</ComputeHistory>
+```
+
+**In Your Profile**
+1. Navigate to Profile > History
+2. Select "Compute Jobs" tab
+3. View all jobs across all assets
+4. Download results and logs
+
+**Auto-Refresh**
+```tsx
+// Jobs refresh every 10 seconds
+const refreshInterval = 10000
+
+useEffect(() => {
+  fetchJobs('init')
+  
+  const balanceInterval = setInterval(
+    () => fetchJobs('repeat'),
+    refreshInterval
+  )
+  
+  return () => clearInterval(balanceInterval)
+}, [refetchJobs])
+```
+
+## Job Output
+
+Successful jobs produce:
+
+**Output Files**
+- Computation results (as defined by algorithm)
+- Serialized data, models, or reports
+- Downloadable from job history
+
+**Algorithm Logs**
+```tsx
+const output: ComputeOutput = {
+  publishAlgorithmLog: true,  // Make logs available
+  publishOutput: true          // Make results available
+}
+```
+
+- Console output from algorithm
+- Error messages and warnings
+- Execution metrics
+
+## Managing Consent Requests
+
+For datasets with consent requirements:
+
+```tsx
+<AssetConsents asset={asset} />
+```
+
+**Consent Flow**
+1. Publisher configures consent requirement
+2. Consumer requests access permission
+3. Publisher approves/denies request
+4. Approved users can run compute jobs
+
+**Checking Consent Status**
+```tsx
+<ConsentPetitionButton asset={asset} />
+<IncomingPendingConsentsSimple asset={asset} />
+```
+
+## Using Automation for Compute
+
+Automate compute job submissions:
+
+```tsx
+const { isAutomationEnabled, autoWallet } = useAutomation()
+
+// Automation wallet handles transactions
+if (isAutomationEnabled && autoWallet) {
+  const signerToUse = autoWallet
+  const accountToUse = autoWallet.address
+}
+```
+
+Benefits:
+- No manual transaction confirmations
+- Batch job submissions
+- Scheduled computations
+- Programmatic workflows
+
+## Algorithm Publishing for C2D
+
+Publish your own compute algorithms:
+
+### Algorithm Configuration
+
+```tsx
+// Algorithm metadata
+{
+  type: 'algorithm',
+  dockerImage: 'oceanprotocol/algo_dockers:python-panda',
+  dockerImageCustomEntrypoint: 'python $ALGO',
+  dockerImageCustomChecksum: 'sha256:abc123...',
+  algorithmPrivacy: true  // Keep algorithm private
+}
+```
+
+### Docker Container Requirements
+
+**Supported Base Images**
+- `oceanprotocol/algo_dockers:python-panda`
+- `oceanprotocol/algo_dockers:python-sql`
+- `oceanprotocol/algo_dockers:node-vibrant`
+- Custom images (with checksum)
+
+**Algorithm Structure**
+```python
+import os
+import pandas as pd
+
+# Input data path provided by C2D environment
+input_folder = os.getenv('DIDS')
+output_folder = '/data/outputs'
+
+# Process data
+df = pd.read_csv(f'{input_folder}/0')
+results = process_data(df)
+
+# Save output
+results.to_csv(f'{output_folder}/results.csv')
+```
+
+**Environment Variables**
+- `$ALGO`: Algorithm file path
+- `$DIDS`: Input dataset folder
+- Consumer parameters (as defined)
+
+### Testing Locally
+
+```bash
+# Test algorithm container
+docker run -v /path/to/data:/data/inputs \
+  -v /path/to/output:/data/outputs \
+  oceanprotocol/algo_dockers:python-panda \
+  python /algorithm.py
+```
+
+## Troubleshooting
+
+### Job Failures
+
+**Algorithm compatibility issues**
+```
+Error: Dataset not orderable with selected algorithm
+```
+Solution:
+- Verify algorithm is in dataset's allow list
+- Check algorithm meets dataset requirements
+- Contact dataset publisher for compatibility
+
+**Insufficient compute resources**
+```
+Job Status: Failed
+Error: Out of memory
+```
+Solution:
+- Select compute environment with more resources
+- Optimize algorithm memory usage
+- Process data in smaller chunks
+
+**Timeout exceeded**
+```
+Job Status: Failed
+Error: Execution timeout
+```
+Solution:
+- Algorithm exceeded max duration
+- Optimize algorithm performance
+- Contact provider for extended timeout
+
+### Payment Issues
+
+**Provider fee expired**
+```tsx
+if (computeValidUntil < Date.now() / 1000) {
+  // Reinitialize provider to get new fees
+  await initPriceAndFees()
+}
+```
+
+**Insufficient balance for all components**
+<Warning>
+Compute jobs require payment for dataset, algorithm, AND provider fees. Ensure sufficient balance for all three.
+</Warning>
+
+### Provider Errors
+
+**Provider unavailable**
+```
+Error: Provider initialization failed
+```
+Solution:
+- Check provider service status
+- Verify network connectivity
+- Try different compute environment
+
+**Invalid compute environment**
+```tsx
+if (!selectedComputeEnv || !selectedComputeEnv.id) {
+  throw new Error('Error getting compute environment')
+}
+```
+Solution:
+- Refresh available environments
+- Select valid environment from list
+
+## Best Practices
+
+1. **Test algorithms locally**: Verify logic before publishing
+2. **Optimize for performance**: Minimize computation time
+3. **Handle errors gracefully**: Include error handling in algorithms
+4. **Use appropriate resources**: Match compute env to job requirements
+5. **Monitor job progress**: Check status regularly
+6. **Download results promptly**: Results may have retention limits
+7. **Provide clear documentation**: Help users understand algorithm purpose
+8. **Set realistic timeouts**: Allow sufficient time for completion
+9. **Use private algorithms**: Protect proprietary code
+10. **Version your algorithms**: Track changes and improvements
+
+## Advanced Features
+
+### Multiple Dataset Inputs
+
+Algorithms can process multiple datasets:
+
+```tsx
+const computeAssets: ComputeAsset[] = [
+  {
+    documentId: dataset1.id,
+    serviceId: dataset1.services[0].id,
+    transferTxId: orderTx1
+  },
+  {
+    documentId: dataset2.id,
+    serviceId: dataset2.services[0].id,
+    transferTxId: orderTx2
+  }
+]
+```
+
+### Algorithm Custom Parameters
+
+Publish algorithms with configurable parameters:
+
+```tsx
+{
+  consumerParameters: [
+    {
+      name: 'threshold',
+      type: 'number',
+      label: 'Confidence Threshold',
+      required: true,
+      default: 0.95,
+      description: 'Minimum confidence for predictions'
+    },
+    {
+      name: 'method',
+      type: 'select',
+      label: 'Processing Method',
+      required: true,
+      options: [
+        { key: 'fast', value: 'Fast Processing' },
+        { key: 'accurate', value: 'Accurate Processing' }
+      ]
+    }
+  ]
+}
+```
+
+## Related Resources
+
+- [Publishing Assets](/guides/publishing-assets)
+- [Consuming Assets](/guides/consuming-assets)
+- [Wallet Setup](/guides/wallet-setup)
+- [Automation Features](/guides/automation)
+
+## Code References
+
+Key implementation files:
+- Compute flow: `src/components/Asset/AssetActions/Compute/index.tsx:400-502`
+- Job management: `src/utils/compute.ts`
+- Environment setup: `src/utils/provider.ts`
+- Form configuration: `src/components/Asset/AssetActions/Compute/FormComputeDataset.tsx`

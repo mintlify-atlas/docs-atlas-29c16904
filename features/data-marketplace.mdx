@@ -1,0 +1,424 @@
+---
+title: 'Data Marketplace'
+description: 'Discover, buy, and sell data assets on the AgrospAI Data Space Portal marketplace'
+icon: 'store'
+---
+
+The AgrospAI Data Space Portal provides a comprehensive data marketplace where users can discover, purchase, and monetize data assets and algorithms. Built on Ocean Protocol, the marketplace enables secure and transparent data exchange with built-in privacy and compliance features.
+
+## Marketplace Overview
+
+The marketplace supports multiple asset types and pricing models, enabling flexible data monetization strategies:
+
+<CardGroup cols={3}>
+  <Card title="Datasets" icon="database">
+    Upload and sell agricultural data, research datasets, and analytics
+  </Card>
+  <Card title="Algorithms" icon="code">
+    Publish and monetize AI/ML algorithms for compute-to-data
+  </Card>
+  <Card title="SaaS Services" icon="cloud">
+    Offer software services with flexible payment models
+  </Card>
+</CardGroup>
+
+## Asset Discovery
+
+### Browse and Search
+
+The marketplace homepage displays featured assets, recent publications, and top-selling datasets:
+
+```tsx
+// From: src/components/Home/index.tsx
+export default function HomePage(): ReactElement {
+  const { chainIds } = useUserPreferences()
+  const { featured, hasFeaturedAssets } = useAddressConfig()
+
+  const [queryRecent, setQueryRecent] = useState<SearchQuery>()
+  const [queryMostSales, setQueryMostSales] = useState<SearchQuery>()
+
+  useEffect(() => {
+    const baseParams = {
+      chainIds,
+      esPaginationOptions: {
+        size: 4
+      },
+      sortOptions: {
+        sortBy: SortTermOptions.Created
+      } as SortOptions
+    } as BaseQueryParams
+
+    setQueryRecent(generateBaseQuery(baseParams))
+
+    // Query for most sales
+    const baseParamsSales = {
+      ...baseParams,
+      sortOptions: {
+        sortBy: SortTermOptions.Orders
+      }
+    }
+    setQueryMostSales(generateBaseQuery(baseParamsSales))
+  }, [chainIds])
+
+  return (
+    <>
+      <SectionQueryResult title="Recently Published" query={queryRecent} />
+      <SectionQueryResult title="Most Sales" query={queryMostSales} />
+    </>
+  )
+}
+```
+
+### Advanced Search
+
+Users can filter and search assets using multiple criteria:
+
+```tsx
+// From: src/components/Search/index.tsx
+export default function SearchPage({
+  setTotalResults,
+  setTotalPagesNumber
+}: {
+  setTotalResults: (totalResults: number) => void
+  setTotalPagesNumber: (totalPagesNumber: number) => void
+}): ReactElement {
+  const router = useRouter()
+  const [parsed, setParsed] = useState<queryString.ParsedQuery<string>>()
+  const { chainIds } = useUserPreferences()
+  const [queryResult, setQueryResult] = useState<PagedAssets>()
+  const [loading, setLoading] = useState<boolean>(true)
+
+  const fetchAssets = useDebouncedCallback(
+    async (parsed: queryString.ParsedQuery<string>, chainIds: number[]) => {
+      setLoading(true)
+      const queryResult = await getResults(parsed, chainIds, newCancelToken())
+      setQueryResult(queryResult)
+      setTotalResults(queryResult?.totalResults || 0)
+      setTotalPagesNumber(queryResult?.totalPages || 0)
+      setLoading(false)
+    },
+    500
+  )
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.filterContainer}>
+        <Filter addFiltersToUrl expanded />
+        <Sort expanded />
+      </div>
+      <div className={styles.results}>
+        <AssetList
+          assets={queryResult?.results}
+          showPagination
+          isLoading={loading}
+          page={queryResult?.page}
+          totalPages={queryResult?.totalPages}
+          onPageChange={updatePage}
+        />
+      </div>
+    </div>
+  )
+}
+```
+
+<Info>
+  Search results are debounced by 500ms to optimize performance and reduce unnecessary API calls.
+</Info>
+
+## Pricing Models
+
+The marketplace supports two pricing strategies:
+
+### Fixed Price Assets
+
+Assets with fixed pricing require payment in a specific base token:
+
+```tsx
+// From: src/components/Publish/Pricing/Fixed.tsx
+export default function Fixed({
+  approvedBaseTokens,
+  content
+}: {
+  approvedBaseTokens: TokenInfo[]
+  content: FormContent
+}): ReactElement {
+  return (
+    <>
+      <Field
+        {...getFieldContent('price', content.fields)}
+        component={Input}
+        name="pricing.price"
+        type="number"
+        min="0"
+        step="0.01"
+      />
+      
+      <Field
+        {...getFieldContent('baseToken', content.fields)}
+        component={Input}
+        name="pricing.baseToken"
+        options={approvedBaseTokens}
+      />
+      
+      <Field
+        {...getFieldContent('amountDataToken', content.fields)}
+        component={Input}
+        name="pricing.amountDataToken"
+        type="number"
+        min="1"
+      />
+    </>
+  )
+}
+```
+
+### Free Assets
+
+Free assets can be accessed without payment, ideal for open data initiatives:
+
+```tsx
+// From: src/components/Publish/Pricing/Free.tsx
+export default function Free({
+  content
+}: {
+  content: FormContent
+}): ReactElement {
+  return (
+    <Field
+      {...getFieldContent('freeAgreement', content.fields)}
+      component={Input}
+      name="pricing.freeAgreement"
+    />
+  )
+}
+```
+
+<Tabs>
+  <Tab title="Fixed Pricing">
+    Best for commercial datasets and premium algorithms. Publishers receive payment in their chosen base token (e.g., OCEAN, USDC).
+    
+    **Key Features:**
+    - Set your own price
+    - Choose payment token
+    - Earn immediately on purchase
+    - Configurable datatoken supply
+  </Tab>
+  
+  <Tab title="Free Pricing">
+    Ideal for open data sharing and building reputation. Users can access without payment.
+    
+    **Key Features:**
+    - No payment required
+    - Wider distribution
+    - Build community trust
+    - Still maintains access control
+  </Tab>
+</Tabs>
+
+## Asset Purchase Flow
+
+### Step 1: Asset Selection
+
+Users browse the marketplace and select an asset to view its details:
+
+```tsx
+// From: src/components/Asset/index.tsx
+export default function AssetDetails({ uri }: { uri: string }): ReactElement {
+  const { asset, title, error, isInPurgatory, loading } = useAsset()
+  
+  return asset && pageTitle !== undefined && !loading ? (
+    <Page title={pageTitle} uri={uri}>
+      <AssetContent asset={asset} />
+    </Page>
+  ) : error ? (
+    <Page title={pageTitle} noPageHeader uri={uri}>
+      <Alert title={pageTitle} text={error} state={'error'} />
+    </Page>
+  ) : (
+    <Page title={undefined} uri={uri}>
+      <Loader />
+    </Page>
+  )
+}
+```
+
+### Step 2: Price Calculation
+
+The system calculates the full price including all fees:
+
+```tsx
+// From: src/components/Asset/AssetActions/Download/index.tsx
+useEffect(() => {
+  if (isUnsupportedPricing) return
+
+  setIsOwned(asset?.accessDetails?.isOwned || false)
+  setValidOrderTx(asset?.accessDetails?.validOrderTx || '')
+
+  // Get full price and fees
+  async function init() {
+    if (
+      asset.accessDetails.addressOrId === ZERO_ADDRESS ||
+      asset.accessDetails.type === 'free'
+    )
+      return
+
+    try {
+      !orderPriceAndFees && setIsPriceLoading(true)
+
+      const _orderPriceAndFees = await getOrderPriceAndFees(
+        asset,
+        accountId || ZERO_ADDRESS
+      )
+      setOrderPriceAndFees(_orderPriceAndFees)
+      !orderPriceAndFees && setIsPriceLoading(false)
+    } catch (error) {
+      LoggerInstance.error('getOrderPriceAndFees', error)
+      setIsPriceLoading(false)
+    }
+  }
+
+  init()
+}, [asset, isUnsupportedPricing])
+```
+
+### Step 3: Order Execution
+
+The order is processed through smart contracts:
+
+```typescript
+// From: src/@utils/order.ts
+export async function order(
+  signer: Signer,
+  asset: AssetExtended,
+  orderPriceAndFees: OrderPriceAndFees,
+  accountId: string,
+  hasDatatoken: boolean
+): Promise<ethers.providers.TransactionResponse> {
+  const datatoken = new Datatoken(signer)
+  const config = getOceanConfig(asset.chainId)
+
+  const initializeData = await initializeProvider(
+    asset,
+    accountId
+  )
+
+  const orderParams = {
+    consumer: accountId,
+    serviceIndex: 0,
+    _providerFee: initializeData.providerFee,
+    _consumeMarketFee: {
+      consumeMarketFeeAddress: marketFeeAddress,
+      consumeMarketFeeAmount: consumeMarketOrderFee,
+      consumeMarketFeeToken:
+        asset?.accessDetails?.baseToken?.address ||
+        '0x0000000000000000000000000000000000000000'
+    }
+  } as OrderParams
+
+  switch (asset.accessDetails?.type) {
+    case 'fixed': {
+      // Approve base token spending
+      const tx = await approve(
+        signer,
+        config,
+        accountId,
+        asset.accessDetails.baseToken.address,
+        config.fixedRateExchangeAddress,
+        orderPriceAndFees.price,
+        false
+      )
+      
+      // Buy datatokens from fixed rate exchange
+      const fre = new FixedRateExchange(
+        config.fixedRateExchangeAddress,
+        signer
+      )
+      const freTx = await fre.buyDatatokens(
+        asset.accessDetails?.addressOrId,
+        '1',
+        orderPriceAndFees.price,
+        marketFeeAddress,
+        consumeMarketFixedSwapFee
+      )
+      
+      // Start the order
+      return await datatoken.startOrder(
+        asset.accessDetails.datatoken.address,
+        orderParams.consumer,
+        orderParams.serviceIndex,
+        orderParams._providerFee,
+        orderParams._consumeMarketFee
+      )
+    }
+    case 'free': {
+      // Dispense free datatokens
+      const dispenser = new Dispenser(config.dispenserAddress, signer)
+      await dispenser.dispense(
+        asset.accessDetails?.datatoken.address,
+        '1',
+        accountId
+      )
+      
+      return await datatoken.startOrder(
+        asset.accessDetails.datatoken.address,
+        orderParams.consumer,
+        orderParams.serviceIndex,
+        orderParams._providerFee,
+        orderParams._consumeMarketFee
+      )
+    }
+  }
+}
+```
+
+<Steps>
+  <Step title="Initialize Provider">
+    The provider is initialized to verify access permissions and calculate fees.
+  </Step>
+  
+  <Step title="Approve Token Spending">
+    For fixed-price assets, approve the base token contract to spend tokens on your behalf.
+  </Step>
+  
+  <Step title="Purchase Datatokens">
+    Buy datatokens from the fixed rate exchange or dispense free datatokens.
+  </Step>
+  
+  <Step title="Start Order">
+    Execute the order transaction to gain access to the asset.
+  </Step>
+</Steps>
+
+## Market Statistics
+
+The marketplace displays real-time statistics about the ecosystem:
+
+```tsx
+// Display total assets, sales, and market activity
+<MarketStats>
+  <Total label="Total Assets" value={totalAssets} />
+  <Total label="Total Sales" value={totalSales} />
+  <Total label="Total Volume" value={totalVolume} />
+</MarketStats>
+```
+
+<Warning>
+  Always verify asset details and publisher information before making a purchase. Check the asset's edit history and metadata for authenticity.
+</Warning>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Asset Publishing" icon="upload" href="/features/asset-publishing">
+    Learn how to publish your own assets to the marketplace
+  </Card>
+  <Card title="Asset Discovery" icon="magnifying-glass" href="/features/asset-discovery">
+    Explore advanced search and filtering capabilities
+  </Card>
+  <Card title="Wallet Integration" icon="wallet" href="/features/wallet-integration">
+    Set up your wallet for marketplace transactions
+  </Card>
+  <Card title="Compute-to-Data" icon="server" href="/features/compute-to-data">
+    Run algorithms on datasets without downloading data
+  </Card>
+</CardGroup>

@@ -1,0 +1,467 @@
+---
+title: Gaia-X Compliance
+description: Learn how the AgrospAI Data Space Portal implements Gaia-X compliance features including self-descriptions, verifiable credentials, and service credentials.
+---
+
+## Overview
+
+The AgrospAI Data Space Portal is built on the **Pontus-X ecosystem**, implementing Gaia-X principles for sovereign data sharing. The portal provides comprehensive support for Gaia-X self-descriptions, verifiable credentials, and compliance validation.
+
+<Note>
+Gaia-X is a project working towards a federated and secure data infrastructure for Europe. The framework enables trusted data sharing while maintaining data sovereignty and control.
+</Note>
+
+## What is Gaia-X?
+
+From the portal's site configuration:
+
+> Powered by [Gaia-X](https://gaia-x.eu/), [Oasis](https://oasisprotocol.org/) and [Ocean Enterprise](https://www.oceanenterprise.io/)
+
+Gaia-X provides:
+
+- **Federated data infrastructure** for Europe
+- **Self-sovereign identity** through verifiable credentials
+- **Transparent compliance** through self-descriptions
+- **Interoperability** across data spaces
+- **Data sovereignty** and control
+
+## Gaia-X Configuration
+
+The portal includes Gaia-X-specific configuration in `app.config.js`:
+
+```javascript
+module.exports = {
+  // Compliance service for Gaia-X validation
+  complianceUri:
+    process.env.NEXT_PUBLIC_COMPLIANCE_URI ||
+    'https://www.delta-dao.com/compliance',
+
+  // Compliance API version (Gaia-X 22.10)
+  complianceApiVersion:
+    process.env.NEXT_PUBLIC_COMPLIANCE_API_VERSION || '2210',
+
+  // Allowed Gaia-X Registry domains for credential verification
+  allowedGaiaXRegistryDomains: [
+    'https://registry.gaia-x.eu/v2206',
+    'https://registry.lab.gaia-x.eu/v2206'
+  ],
+}
+```
+
+## Gaia-X Information Types
+
+The portal implements Gaia-X 22.10 specification types:
+
+### Service Metadata Structure
+
+```typescript
+import { GaiaXInformation2210 } from 'src/@types/gaia-x/2210/GXInformation'
+import { GaiaXTermsAndConditions2210 } from 'src/@types/gaia-x/2210/TermsAndConditions'
+import { GaiaXPIIInformation2210 } from 'src/@types/gaia-x/2210/PII'
+
+interface GaiaXInformation2210 {
+  termsAndConditions: GaiaXTermsAndConditions2210[]
+  containsPII: boolean
+  PIIInformation?: GaiaXPIIInformation2210[]
+}
+```
+
+### Terms and Conditions
+
+```typescript
+interface GaiaXTermsAndConditions2210 {
+  url: string  // URL to terms and conditions document
+}
+```
+
+Example:
+
+```typescript
+const gaiaXInfo: GaiaXInformation2210 = {
+  termsAndConditions: [
+    { url: 'https://portal.agrospai.udl.cat/terms' },
+    { url: 'https://example.com/gaia-x-specific-terms' }
+  ],
+  containsPII: false
+}
+```
+
+### PII (Personal Identifiable Information)
+
+```typescript
+interface GaiaXPIIInformation2210 {
+  dataController: string
+  legitimateProcessing: GaiaXPIIProcessing2210[]
+}
+
+interface GaiaXPIIProcessing2210 {
+  legalBasis: string
+  purpose: string[]
+  dataProtectionContactPoint: string
+  consentWithdrawalContactPoint: string
+}
+```
+
+Example:
+
+```typescript
+const piiInfo: GaiaXPIIInformation2210 = {
+  dataController: 'Universitat de Lleida',
+  legitimateProcessing: [
+    {
+      legalBasis: 'GDPR Art. 6(1)(f) - Legitimate Interest',
+      purpose: ['Service delivery', 'Security monitoring'],
+      dataProtectionContactPoint: 'dpd@udl.cat',
+      consentWithdrawalContactPoint: 'agrospai@udl.cat'
+    }
+  ]
+}
+```
+
+<Warning>
+If your service offering contains PII, you **must** set `containsPII: true` and provide complete `PIIInformation` details including data controller, legal basis, and contact points.
+</Warning>
+
+## Publishing with Gaia-X Compliance
+
+When publishing a service offering, include Gaia-X information:
+
+```typescript
+import { FormPublishData } from 'src/components/Publish/_types'
+
+const publishData: FormPublishData = {
+  // ... other metadata fields
+  
+  gaiaXInformation: {
+    termsAndConditions: [
+      { url: 'https://portal.agrospai.udl.cat/terms' }
+    ],
+    containsPII: false,
+    // If containsPII is true, include PIIInformation:
+    // PIIInformation: [{ ... }]
+  }
+}
+```
+
+### Validating Gaia-X Registry URLs
+
+The portal validates that service credential URLs come from allowed registries:
+
+```typescript
+import { ServiceCredential } from 'src/@types/gaia-x/2210/ServiceCredential'
+
+interface ServiceCredential {
+  raw?: string        // Raw credential JSON
+  url?: string        // URL to credential in Gaia-X registry
+  isVerified?: boolean  // Whether credential is verified
+  idMatch?: boolean    // Whether credential ID matches service
+}
+
+// Validation logic (from src/components/Publish/_utils.ts:421)
+const isValidGaiaXUrl = (url: string) => {
+  return allowedGaiaXRegistryDomains.findIndex((domain) => 
+    url.startsWith(domain)
+  ) !== -1
+}
+```
+
+## Verifiable Presentations
+
+The portal supports Gaia-X Verifiable Presentations for participant and service credentials.
+
+### Verifiable Presentation Structure
+
+```typescript
+import { 
+  GaiaXVerifiablePresentation,
+  GaiaXVerifiableCredential,
+  GaiaXCredentialSubjectType
+} from '@utils/verifiablePresentations/types'
+
+interface GaiaXVerifiablePresentation {
+  '@context': string | string[]
+  type: string | string[]
+  verifiableCredential: GaiaXVerifiableCredential[]
+}
+```
+
+### Credential Subject Types
+
+The portal recognizes these Gaia-X credential types:
+
+```typescript
+enum GaiaXCredentialSubjectType {
+  'gx:LegalParticipant' = 'gx:LegalParticipant',
+  'gx:legalRegistrationNumber' = 'gx:legalRegistrationNumber',
+  'gx:GaiaXTermsAndConditions' = 'gx:GaiaXTermsAndConditions'
+}
+```
+
+### Fetching Verifiable Credentials
+
+```typescript
+import { fetchVerifiablePresentations } from '@utils/verifiablePresentations/api'
+
+async function getParticipantCredentials(address: string) {
+  try {
+    const presentations = await fetchVerifiablePresentations(
+      address,
+      complianceUri,
+      complianceApiVersion
+    )
+    
+    return presentations
+  } catch (error) {
+    console.error('Failed to fetch credentials:', error)
+    return []
+  }
+}
+```
+
+### Using Verifiable Presentations Context
+
+```typescript
+import { useVerifiablePresentation } from '@context/VerifiablePresentation'
+
+function ParticipantInfo() {
+  const { credentials } = useVerifiablePresentation()
+  
+  // credentials is GaiaXVerifiablePresentationArray
+  const hasCredentials = credentials && credentials.length > 0
+  
+  return (
+    <div>
+      {hasCredentials ? (
+        <div>Verified Gaia-X Participant</div>
+      ) : (
+        <div>No Gaia-X credentials found</div>
+      )}
+    </div>
+  )
+}
+```
+
+## Verifiable Presentation Components
+
+The portal provides ready-to-use components for displaying credentials:
+
+### VerifiablePresentation Component
+
+```tsx
+import VerifiablePresentation from '@components/VerifiablePresentation'
+import { GaiaXVerifiablePresentation } from '@utils/verifiablePresentations/types'
+
+function ParticipantProfile({ presentation }: { 
+  presentation: GaiaXVerifiablePresentation 
+}) {
+  return (
+    <VerifiablePresentation 
+      verifiablePresentation={presentation} 
+    />
+  )
+}
+```
+
+### Verifiable Presentation Verification
+
+```tsx
+import VerifiablePresentationVerification from '@components/VerifiablePresentation/VerifiablePresentationVerification'
+
+function CredentialStatus({ presentation }: { 
+  presentation: GaiaXVerifiablePresentation 
+}) {
+  return (
+    <VerifiablePresentationVerification 
+      verifiablePresentation={presentation}
+    />
+  )
+}
+```
+
+### Using the Verification Hook
+
+```typescript
+import { useVerifiablePresentationVerification } from '@hooks/useVerifiablePresentationVerification'
+import { GaiaXVerifiablePresentation } from '@utils/verifiablePresentations/types'
+
+function CredentialVerifier({ 
+  presentation,
+  complianceUri 
+}: { 
+  presentation: GaiaXVerifiablePresentation
+  complianceUri: string
+}) {
+  const verification = useVerifiablePresentationVerification(
+    presentation,
+    complianceUri
+  )
+  
+  if (verification.isLoading) {
+    return <div>Verifying credentials...</div>
+  }
+  
+  if (verification.isValid) {
+    return <div>✓ Valid Gaia-X credentials</div>
+  }
+  
+  return <div>⚠ Credential verification failed</div>
+}
+```
+
+## Filtering Credentials by Type
+
+Utility function to extract specific credential types:
+
+```typescript
+import { getCredentialsByType } from '@utils/verifiablePresentations/utils'
+import { 
+  GaiaXVerifiablePresentation,
+  GaiaXCredentialSubjectType
+} from '@utils/verifiablePresentations/types'
+
+function extractLegalParticipant(
+  presentations: GaiaXVerifiablePresentation[]
+) {
+  const legalParticipantCredentials = getCredentialsByType(
+    presentations,
+    GaiaXCredentialSubjectType['gx:LegalParticipant']
+  )
+  
+  return legalParticipantCredentials
+}
+```
+
+## Exporting Gaia-X Service Credentials
+
+The portal provides functionality to export DDO (Decentralized Data Object) as Gaia-X Service Credential:
+
+```tsx
+import DDODownloadButton from '@components/@shared/DDODownloadButton'
+
+function AssetActions({ ddo, asset }) {
+  return (
+    <DDODownloadButton 
+      ddo={ddo}
+      asset={asset}
+    />
+  )
+}
+```
+
+The download includes:
+- Prepared format for Gaia-X Digital Clearing Houses (GXDCH)
+- Proper trusted shape registry context
+- Self-description format
+
+From the component (src/components/@shared/DDODownloadButton/index.tsx:59):
+
+> "This manual export functionality will assist you to create Gaia-X Service Credentials for submission to the Gaia-X Digital Clearing Houses (GXDCH)"
+
+<Note>
+Exported credentials include the trusted shape registry context from:
+`https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#`
+</Note>
+
+## Gaia-X Network Support
+
+The portal includes specific support for Gaia-X testnet:
+
+```typescript
+// From src/@hooks/useNetworkMetadata/constants.ts
+const configGaiaX = getOceanConfig(2021000)
+
+export const networkDataGaiaX: EthereumListsChain = {
+  name: 'Gaia-X Testnet',
+  chain: 'GAIAXTESTNET',
+  chainId: 2021000,
+  networkId: 2021000,
+  nativeCurrency: { 
+    name: 'Gaia-X', 
+    symbol: 'GX', 
+    decimals: 18 
+  },
+  rpc: [configGaiaX.nodeUri],
+  faucets: [
+    'https://faucet.gaiaxtestnet.oceanprotocol.com/',
+    'https://faucet.gx.gaiaxtestnet.oceanprotocol.com/'
+  ],
+  infoURL: 'https://www.gaia-x.eu'
+}
+```
+
+## Gaia-X Ecosystem Portals
+
+The AgrospAI portal is part of the broader Gaia-X ecosystem. Related portals include:
+
+- **EuProGigant**: First funded binational industrial project with Gaia-X principles
+- **GX4FM moveID**: Decentralized digital mobility identity infrastructure
+- **COOPERANTS**: Collaborative alliance in Aeronautics and space sector
+- **ACCURATE**: Manufacturing competitiveness with DSS frameworks
+- **Flex4Res**: Data spaces for flexible production lines
+
+All powered by Pontus-X, the Gaia-X-compliant ecosystem.
+
+## Compliance Validation Flow
+
+1. **Service Publication**:
+   - Publisher includes Gaia-X information in metadata
+   - Service credential URL is validated against allowed registries
+   - Terms and conditions are linked
+
+2. **Credential Verification**:
+   - Portal fetches verifiable presentations from compliance service
+   - Credentials are validated for structure and signatures
+   - Verification status is displayed to users
+
+3. **Service Discovery**:
+   - Services display Gaia-X compliance badges
+   - Users can view credential details
+   - Verification status helps build trust
+
+## Best Practices
+
+1. **Always provide Terms and Conditions**:
+   ```typescript
+   gaiaXInformation: {
+     termsAndConditions: [
+       { url: 'https://your-portal.com/terms' }
+     ],
+     containsPII: false
+   }
+   ```
+
+2. **Be explicit about PII**:
+   - Set `containsPII: true` if your service processes personal data
+   - Provide complete PII information including legal basis and contacts
+
+3. **Use allowed registries only**:
+   - Only reference credentials from `allowedGaiaXRegistryDomains`
+   - Validate URLs before submission
+
+4. **Keep credentials up to date**:
+   - Regularly verify your organization's Gaia-X credentials
+   - Update service credentials when they expire
+
+5. **Provide clear documentation**:
+   - Link to detailed service descriptions
+   - Explain data processing activities
+   - Document compliance measures
+
+<Warning>
+**Important**: Service metadata published on-chain should never contain actual personal data. Only reference PII processing activities through the `PIIInformation` structure.
+</Warning>
+
+## Gaia-X Resources
+
+- [Gaia-X Official Website](https://gaia-x.eu/)
+- [Gaia-X Framework Documentation](https://docs.gaia-x.eu/framework/)
+- [Gaia-X Registry](https://registry.gaia-x.eu/)
+- [Gaia-X Lab Registry](https://registry.lab.gaia-x.eu/)
+- [Gaia-X Digital Clearing House](https://docs.gaia-x.eu/framework/?tab=clearing-house)
+- [Pontus-X Documentation](https://docs.pontus-x.eu/)
+
+## Related Documentation
+
+- [GDPR Compliance](/compliance/gdpr)
+- [Privacy Policy Management](/compliance/privacy-policies)
+- [Terms and Conditions](/compliance/terms-conditions)

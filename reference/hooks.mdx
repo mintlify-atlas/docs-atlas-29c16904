@@ -1,0 +1,500 @@
+---
+title: 'React Hooks'
+description: 'Custom React hooks for asset queries, user data, network management, and blockchain interactions'
+---
+
+## Overview
+
+The AgrospAI Data Space Portal provides a comprehensive set of React hooks built on React Query and wagmi for blockchain interactions.
+
+## Asset Hooks
+
+### useAssets
+
+Query assets owned by an address with automatic caching and suspense support.
+
+<ParamField path="address" type="string" required>
+  Ethereum address of the asset owner
+</ParamField>
+
+<ParamField path="type" type="'algorithm' | 'dataset'" required>
+  Type of assets to query
+</ParamField>
+
+<ParamField path="chainId" type="number" required>
+  Chain ID to query on
+</ParamField>
+
+<ResponseField name="data" type="PagedAssets">
+  Query result with assets, pagination, and aggregations
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Error object if query failed
+</ResponseField>
+
+```typescript
+import { useAssets } from '@hooks/useAssets'
+import { Suspense } from 'react'
+
+function MyAssets() {
+  const { data } = useAssets(
+    '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+    'dataset',
+    137
+  )
+
+  return (
+    <div>
+      <h2>My Datasets ({data.totalResults})</h2>
+      {data.results.map(asset => (
+        <div key={asset.id}>
+          {asset.metadata.name}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Wrap with Suspense
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MyAssets />
+    </Suspense>
+  )
+}
+```
+
+## User & Account Hooks
+
+### useBalance
+
+Track native token and approved ERC20 token balances for the connected wallet.
+
+<ResponseField name="balance.native" type="{ symbol: string, balance: string }">
+  Native token (ETH, MATIC, etc.) balance
+</ResponseField>
+
+<ResponseField name="balance.approved" type="TokenBalances">
+  Object mapping token symbols to balances
+</ResponseField>
+
+<ResponseField name="getApprovedTokenBalances" type="(address: string) => Promise<TokenBalances>">
+  Function to manually refresh token balances
+</ResponseField>
+
+```typescript
+import useBalance from '@hooks/useBalance'
+
+function WalletBalance() {
+  const { balance, getApprovedTokenBalances } = useBalance()
+
+  return (
+    <div>
+      <p>Native: {balance.native.balance} {balance.native.symbol}</p>
+      {balance.approved && Object.entries(balance.approved).map(([symbol, amount]) => (
+        <p key={symbol}>{symbol}: {amount}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+### useAccountPurgatory
+
+Check if an account is flagged in the purgatory moderation system.
+
+<ParamField path="accountId" type="string" required>
+  Ethereum address to check
+</ParamField>
+
+<ResponseField name="isInPurgatory" type="boolean">
+  Whether the account is flagged
+</ResponseField>
+
+<ResponseField name="purgatoryData" type="PurgatoryDataAccount">
+  Purgatory details including reason
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state
+</ResponseField>
+
+```typescript
+import { useAccountPurgatory } from '@hooks/useAccountPurgatory'
+import { useAccount } from 'wagmi'
+
+function AccountStatus() {
+  const { address } = useAccount()
+  const { isInPurgatory, purgatoryData, isLoading } = useAccountPurgatory(address)
+
+  if (isLoading) return <div>Checking account status...</div>
+
+  if (isInPurgatory) {
+    return (
+      <Alert state="warning">
+        Account flagged: {purgatoryData.reason}
+      </Alert>
+    )
+  }
+
+  return <div>Account in good standing</div>
+}
+```
+
+## Network Hooks
+
+### useNetworkMetadata
+
+Get comprehensive metadata about the current connected network.
+
+<ResponseField name="networksList" type="EthereumListsChain[]">
+  Complete list of supported networks
+</ResponseField>
+
+<ResponseField name="networkDisplayName" type="string">
+  Human-readable network name
+</ResponseField>
+
+<ResponseField name="networkData" type="EthereumListsChain">
+  Full network metadata object
+</ResponseField>
+
+<ResponseField name="isTestnet" type="boolean">
+  Whether current network is a testnet
+</ResponseField>
+
+<ResponseField name="isSupportedOceanNetwork" type="boolean">
+  Whether Ocean Protocol is deployed on this network
+</ResponseField>
+
+```typescript
+import useNetworkMetadata from '@hooks/useNetworkMetadata'
+
+function NetworkInfo() {
+  const {
+    networkDisplayName,
+    isTestnet,
+    isSupportedOceanNetwork,
+    networkData
+  } = useNetworkMetadata()
+
+  if (!isSupportedOceanNetwork) {
+    return <Alert state="error">Please switch to a supported network</Alert>
+  }
+
+  return (
+    <div>
+      <h3>{networkDisplayName}</h3>
+      {isTestnet && <Badge>Testnet</Badge>}
+      <p>Chain ID: {networkData.chainId}</p>
+    </div>
+  )
+}
+```
+
+### useGraphSyncStatus
+
+Monitor the sync status between the blockchain and Ocean Protocol subgraph.
+
+<ParamField path="networkId" type="number" required>
+  Chain ID to monitor
+</ParamField>
+
+<ResponseField name="isGraphSynced" type="boolean">
+  Whether subgraph is synced (within 30 blocks)
+</ResponseField>
+
+<ResponseField name="blockHead" type="number">
+  Current blockchain head block number
+</ResponseField>
+
+<ResponseField name="blockGraph" type="number">
+  Latest block indexed by subgraph
+</ResponseField>
+
+```typescript
+import { useGraphSyncStatus } from '@hooks/useGraphSyncStatus'
+import { useNetwork } from 'wagmi'
+
+function SyncStatus() {
+  const { chain } = useNetwork()
+  const { isGraphSynced, blockHead, blockGraph } = useGraphSyncStatus(chain?.id)
+
+  if (!isGraphSynced) {
+    return (
+      <Alert state="warning">
+        Subgraph syncing... ({blockGraph}/{blockHead})
+      </Alert>
+    )
+  }
+
+  return <div>Data is up to date</div>
+}
+```
+
+## Utility Hooks
+
+### useLocalStorage
+
+Persist state to browser localStorage with type safety.
+
+<ParamField path="key" type="string" required>
+  localStorage key
+</ParamField>
+
+<ParamField path="initialValue" type="T" required>
+  Default value if key doesn't exist
+</ParamField>
+
+<ResponseField name="[0]" type="T">
+  Current stored value
+</ResponseField>
+
+<ResponseField name="[1]" type="(value: T | ((val: T) => T)) => void">
+  Setter function (same API as useState)
+</ResponseField>
+
+```typescript
+import useLocalStorage from '@hooks/useLocalStorage'
+
+function ThemeToggle() {
+  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light')
+
+  return (
+    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+      Current: {theme}
+    </button>
+  )
+}
+```
+
+### usePrevious
+
+Track the previous value of a prop or state.
+
+<ParamField path="value" type="T" required>
+  Value to track
+</ParamField>
+
+<ResponseField name="previousValue" type="T">
+  Value from previous render
+</ResponseField>
+
+```typescript
+import usePrevious from '@hooks/usePrevious'
+import { useState } from 'react'
+
+function Counter() {
+  const [count, setCount] = useState(0)
+  const prevCount = usePrevious(count)
+
+  return (
+    <div>
+      <p>Current: {count}</p>
+      <p>Previous: {prevCount}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  )
+}
+```
+
+### useCancelToken
+
+Generate Axios cancel tokens for abortable requests.
+
+<ResponseField name="newCancelToken" type="() => CancelToken">
+  Function that returns a new cancel token
+</ResponseField>
+
+```typescript
+import { useCancelToken } from '@hooks/useCancelToken'
+import { getAsset } from '@utils/aquarius'
+import { useEffect, useState } from 'react'
+
+function AssetLoader({ did }: { did: string }) {
+  const newCancelToken = useCancelToken()
+  const [asset, setAsset] = useState(null)
+
+  useEffect(() => {
+    const loadAsset = async () => {
+      const result = await getAsset(did, newCancelToken())
+      setAsset(result)
+    }
+    loadAsset()
+  }, [did])
+
+  return <div>{asset?.metadata.name}</div>
+}
+```
+
+### useAbortController
+
+Generate AbortController signals for fetch API requests.
+
+<ResponseField name="newAbortController" type="() => AbortSignal">
+  Function that returns a new abort signal
+</ResponseField>
+
+```typescript
+import { useAbortController } from '@hooks/useAbortController'
+import { useEffect, useState } from 'react'
+
+function DataFetcher({ url }: { url: string }) {
+  const newAbortController = useAbortController()
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    fetch(url, { signal: newAbortController() })
+      .then(res => res.json())
+      .then(setData)
+      .catch(err => {
+        if (err.name === 'AbortError') {
+          console.log('Request cancelled')
+        }
+      })
+  }, [url])
+
+  return <div>{JSON.stringify(data)}</div>
+}
+```
+
+### useIsMounted
+
+Check if component is currently mounted (useful for preventing state updates after unmount).
+
+<ResponseField name="isMounted" type="() => boolean">
+  Function that returns current mount status
+</ResponseField>
+
+```typescript
+import { useIsMounted } from '@hooks/useIsMounted'
+import { useState, useEffect } from 'react'
+
+function AsyncComponent() {
+  const isMounted = useIsMounted()
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    fetchData().then(result => {
+      if (isMounted()) {
+        setData(result)
+      }
+    })
+  }, [])
+
+  return <div>{data}</div>
+}
+```
+
+## Advanced Hooks
+
+### useNftFactory
+
+Interact with the Ocean Protocol NFT Factory contract.
+
+```typescript
+import { useNftFactory } from '@hooks/useNftFactory'
+
+function NftCreator() {
+  const nftFactory = useNftFactory()
+  // Access NFT factory methods
+}
+```
+
+### useUserConsents
+
+Manage user data consents for GDPR compliance.
+
+```typescript
+import { useUserConsents } from '@hooks/useUserConsents'
+
+function ConsentManager() {
+  const { consents, updateConsent } = useUserConsents()
+  // Manage user consent preferences
+}
+```
+
+### useVerifiablePresentations
+
+Handle Gaia-X verifiable presentations and credentials.
+
+```typescript
+import { useVerifiablePresentations } from '@hooks/useVerifiablePresentations'
+
+function CredentialViewer() {
+  const { presentations } = useVerifiablePresentations()
+  // Display verifiable credentials
+}
+```
+
+## Hook Composition
+
+Hooks can be combined for complex functionality:
+
+```typescript
+import useBalance from '@hooks/useBalance'
+import useNetworkMetadata from '@hooks/useNetworkMetadata'
+import { useAccount } from 'wagmi'
+
+function WalletDashboard() {
+  const { address } = useAccount()
+  const { balance } = useBalance()
+  const { networkDisplayName, isTestnet } = useNetworkMetadata()
+
+  if (!address) return <div>Please connect wallet</div>
+
+  return (
+    <div>
+      <h2>Wallet Dashboard</h2>
+      <p>Network: {networkDisplayName} {isTestnet && '(Testnet)'}</p>
+      <p>Balance: {balance.native.balance} {balance.native.symbol}</p>
+    </div>
+  )
+}
+```
+
+## Type Definitions
+
+```typescript
+// Balance types
+interface UserBalance {
+  native: {
+    symbol: string
+    balance: string
+  }
+  approved?: TokenBalances
+}
+
+interface TokenBalances {
+  [symbol: string]: string
+}
+
+// Network types
+interface UseNetworkMetadata {
+  networksList: EthereumListsChain[]
+  networkDisplayName: string
+  networkData: EthereumListsChain
+  isTestnet: boolean
+  isSupportedOceanNetwork: boolean
+}
+
+// Graph sync types
+interface UseGraphSyncStatus {
+  isGraphSynced: boolean
+  blockHead: number
+  blockGraph: number
+}
+
+// Purgatory types
+interface UseAccountPurgatory {
+  isInPurgatory: boolean
+  purgatoryData: PurgatoryDataAccount
+  isLoading: boolean
+}
+```

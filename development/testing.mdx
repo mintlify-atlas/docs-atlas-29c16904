@@ -1,0 +1,683 @@
+---
+title: Testing Guide
+description: Write and run tests for the AgrospAI Data Space Portal using Jest, Testing Library, and Storybook
+---
+
+The AgrospAI Data Space Portal uses a comprehensive testing approach combining unit tests, component tests, and visual testing through Storybook.
+
+## Testing Stack
+
+The project uses the following testing tools:
+
+- **[Jest](https://jestjs.io/)** - Test runner and assertion library
+- **[Testing Library](https://testing-library.com/)** - React component testing utilities
+- **[Storybook](https://storybook.js.org/)** - UI component development and visual testing
+- **[StoryShots Addon](https://storybook.js.org/addons/@storybook/addon-storyshots)** - Automatic snapshot tests from Storybook stories
+
+<Info>
+Storybook stories automatically generate tests through the StoryShots addon, providing good coverage with minimal effort.
+</Info>
+
+## Running Tests
+
+### Full Test Suite
+
+Run the complete test suite including linting, type checking, and tests:
+
+<CodeGroup>
+  ```bash npm
+  npm test
+  ```
+
+  ```bash yarn
+  yarn test
+  ```
+</CodeGroup>
+
+This command runs:
+1. **Pregenerate** - Generates required build files
+2. **Linting** - ESLint code quality checks
+3. **Type checking** - TypeScript type validation
+4. **Jest tests** - All unit and component tests
+
+### Individual Test Commands
+
+Run specific test types independently:
+
+<CodeGroup>
+  ```bash Jest Only
+  npm run jest
+  ```
+
+  ```bash Linting
+  npm run lint
+  ```
+
+  ```bash Type Check
+  npm run type-check
+  ```
+
+  ```bash Format Code
+  npm run format
+  ```
+</CodeGroup>
+
+### Watch Mode
+
+During development, use watch mode for instant feedback:
+
+```bash
+npm run jest:watch
+```
+
+This runs tests continuously and shows:
+- Real-time test results
+- Coverage report updates
+- File change detection
+
+<Tip>
+Watch mode only reruns tests affected by your changes, making it very efficient for development.
+</Tip>
+
+## Jest Configuration
+
+Jest is configured in `.jest/jest.config.js` with Next.js integration.
+
+### Configuration Overview
+
+```javascript .jest/jest.config.js
+const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './' // Path to Next.js app
+})
+
+const customJestConfig = {
+  rootDir: '../',
+  setupFilesAfterEnv: ['<rootDir>/.jest/jest.setup.tsx'],
+  testEnvironment: 'jsdom',
+  moduleDirectories: ['node_modules', '<rootDir>/src'],
+  
+  // Path aliases matching tsconfig.json
+  moduleNameMapper: {
+    '^.+\\.(svg)$': '<rootDir>/.jest/__mocks__/svgrMock.tsx',
+    '@components/(.*)$': '<rootDir>/src/components/$1',
+    '@shared(.*)$': '<rootDir>/src/components/@shared/$1',
+    '@hooks/(.*)$': '<rootDir>/src/@hooks/$1',
+    '@context/(.*)$': '<rootDir>/src/@context/$1',
+    '@images/(.*)$': '<rootDir>/src/@images/$1',
+    '@utils/(.*)$': '<rootDir>/src/@utils/$1',
+    '@content/(.*)$': '<rootDir>/@content/$1'
+  },
+  
+  // Coverage configuration
+  collectCoverage: true,
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.{stories,test}.{ts,tsx}',
+    '!src/@types/**/*.{ts,tsx}'
+  ],
+  
+  // Ignore patterns
+  testPathIgnorePatterns: [
+    '<rootDir>/node_modules/',
+    '<rootDir>/.next/',
+    '<rootDir>/coverage'
+  ],
+  
+  // ESM package handling
+  transformIgnorePatterns: ['/node_modules/(?!uuid|remark)/']
+}
+```
+
+### Test Setup
+
+The test environment is configured in `.jest/jest.setup.tsx`:
+
+```typescript .jest/jest.setup.tsx
+import '@testing-library/jest-dom/extend-expect'
+import { jest } from '@jest/globals'
+import './__mocks__/matchMedia'
+import './__mocks__/hooksMocks'
+import './__mocks__/connectkit'
+
+// Mock Next.js router
+jest.mock('next/router', () => ({
+  useRouter: jest.fn().mockImplementation(() => ({
+    route: '/',
+    pathname: '/'
+  }))
+}))
+```
+
+## Writing Component Tests
+
+### Test File Structure
+
+Tests should be colocated with components:
+
+```
+src
+└── components
+    └── @shared
+        └── AddToken
+            ├── index.tsx           # Component
+            ├── index.module.css    # Styles
+            ├── index.stories.tsx   # Storybook stories
+            └── index.test.tsx      # Tests
+```
+
+### Basic Test Example
+
+```typescript index.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react'
+import testRender from '../../../../.jest/testRender'
+import AddToken from './index'
+
+// Mock dependencies
+jest.mock('../../../@utils/wallet', () => ({ 
+  addTokenToWallet: jest.fn() 
+}))
+
+describe('@shared/AddToken', () => {
+  const propsBase = {
+    address: '0xd8992Ed72C445c35Cb4A2be468568Ed1079357c8',
+    symbol: 'OCEAN'
+  }
+
+  // Snapshot test using testRender helper
+  testRender(<AddToken {...propsBase} />)
+
+  it('renders with custom text', () => {
+    render(<AddToken {...propsBase} text="Hello Text" />)
+    expect(screen.getByText('Hello Text')).toBeInTheDocument()
+  })
+
+  it('handles click events', () => {
+    render(<AddToken {...propsBase} />)
+    fireEvent.click(screen.getByRole('button'))
+    // Add assertions for expected behavior
+  })
+
+  it('renders minimal variant', () => {
+    render(<AddToken {...propsBase} minimal />)
+    expect(screen.getByRole('button')).toHaveClass('minimal')
+  })
+})
+```
+
+### Testing Library Best Practices
+
+<AccordionGroup>
+  <Accordion title="Query Priority">
+    Use queries in this order of priority:
+
+    1. **getByRole** - Most accessible, preferred
+    ```typescript
+    screen.getByRole('button', { name: /submit/i })
+    ```
+
+    2. **getByLabelText** - For form fields
+    ```typescript
+    screen.getByLabelText(/username/i)
+    ```
+
+    3. **getByPlaceholderText** - Form inputs
+    ```typescript
+    screen.getByPlaceholderText(/enter email/i)
+    ```
+
+    4. **getByText** - Non-interactive content
+    ```typescript
+    screen.getByText(/welcome/i)
+    ```
+
+    5. **getByTestId** - Last resort only
+    ```typescript
+    screen.getByTestId('custom-element')
+    ```
+  </Accordion>
+
+  <Accordion title="Async Operations">
+    Use `waitFor` and `findBy` queries for async behavior:
+
+    ```typescript
+    import { waitFor } from '@testing-library/react'
+
+    it('loads data asynchronously', async () => {
+      render(<DataComponent />)
+      
+      // Wait for element to appear
+      const data = await screen.findByText(/loaded data/i)
+      expect(data).toBeInTheDocument()
+      
+      // Or wait for condition
+      await waitFor(() => {
+        expect(screen.getByText(/complete/i)).toBeInTheDocument()
+      })
+    })
+    ```
+  </Accordion>
+
+  <Accordion title="User Interactions">
+    Use `fireEvent` or `userEvent` for interactions:
+
+    ```typescript
+    import { fireEvent } from '@testing-library/react'
+    import userEvent from '@testing-library/user-event'
+
+    it('handles user input', async () => {
+      render(<Form />)
+      
+      // fireEvent - synchronous
+      const input = screen.getByLabelText(/name/i)
+      fireEvent.change(input, { target: { value: 'John' } })
+      
+      // userEvent - more realistic, async
+      const user = userEvent.setup()
+      await user.type(input, 'John Doe')
+      await user.click(screen.getByRole('button'))
+    })
+    ```
+  </Accordion>
+
+  <Accordion title="Mocking Hooks and Context">
+    Mock custom hooks and React context:
+
+    ```typescript
+    // Mock custom hook
+    jest.mock('@hooks/useAsset', () => ({
+      useAsset: () => ({
+        ddo: mockDDO,
+        isInPurgatory: false,
+        loading: false
+      })
+    }))
+
+    // Test with context
+    import { AssetProvider } from '@context/Asset'
+
+    const wrapper = ({ children }) => (
+      <AssetProvider value={mockContextValue}>
+        {children}
+      </AssetProvider>
+    )
+
+    render(<Component />, { wrapper })
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Storybook
+
+Storybook provides an isolated environment for developing and testing UI components.
+
+### Running Storybook
+
+<Steps>
+  <Step title="Start Storybook Server">
+    ```bash
+    npm run storybook
+    ```
+
+    Storybook will be available at `http://localhost:6006`.
+  </Step>
+
+  <Step title="Build Static Storybook">
+    For deployment or sharing:
+
+    ```bash
+    npm run storybook:build
+    ```
+
+    Output is generated in `storybook-static/` directory.
+  </Step>
+</Steps>
+
+### Writing Stories
+
+Create stories for each component variant:
+
+```typescript index.stories.tsx
+import { ComponentStory, ComponentMeta } from '@storybook/react'
+import AddToken, { AddTokenProps } from '@shared/AddToken'
+
+export default {
+  title: 'Component/@shared/AddToken',
+  component: AddToken
+} as ComponentMeta<typeof AddToken>
+
+const Template: ComponentStory<typeof AddToken> = (args: AddTokenProps) => {
+  return <AddToken {...args} />
+}
+
+interface Props {
+  args: AddTokenProps
+}
+
+export const Default: Props = Template.bind({})
+Default.args = {
+  address: '0xd8992Ed72C445c35Cb4A2be468568Ed1079357c8',
+  symbol: 'OCEAN'
+}
+
+export const Minimal: Props = Template.bind({})
+Minimal.args = {
+  address: '0xd8992Ed72C445c35Cb4A2be468568Ed1079357c8',
+  symbol: 'OCEAN',
+  minimal: true
+}
+
+export const WithCustomText: Props = Template.bind({})
+WithCustomText.args = {
+  address: '0xd8992Ed72C445c35Cb4A2be468568Ed1079357c8',
+  symbol: 'OCEAN',
+  text: 'Add Custom Token'
+}
+```
+
+### Storybook Configuration
+
+Storybook is configured in `.storybook/main.js`:
+
+```javascript .storybook/main.js
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
+
+module.exports = {
+  core: { builder: 'webpack5' },
+  stories: ['../src/**/*.stories.tsx'],
+  addons: ['@storybook/addon-essentials'],
+  framework: '@storybook/react',
+  
+  webpackFinal: async (config) => {
+    // Add TypeScript path aliases
+    config.resolve.plugins = [
+      ...(config.resolve.plugins || []),
+      new TsconfigPathsPlugin({
+        extensions: config.resolve.extensions
+      })
+    ]
+    
+    // SVG handling
+    const fileLoaderRule = config.module.rules.find(
+      (rule) => rule.test && rule.test.test('.svg')
+    )
+    fileLoaderRule.exclude = /\.svg$/
+    
+    config.module.rules.push({
+      test: /\.svg$/,
+      issuer: /\.(tsx|ts)$/,
+      use: [{ loader: '@svgr/webpack', options: { icon: true } }]
+    })
+    
+    return config
+  }
+}
+```
+
+### StoryShots Integration
+
+All Storybook stories automatically generate snapshot tests through the StoryShots addon. No additional configuration needed!
+
+```typescript
+// This happens automatically:
+// ✓ Component/@shared/AddToken › Default
+// ✓ Component/@shared/AddToken › Minimal
+// ✓ Component/@shared/AddToken › WithCustomText
+```
+
+## Code Coverage
+
+Coverage reports are automatically generated with every test run.
+
+### Viewing Coverage
+
+Coverage summary appears in the console:
+
+```bash
+--------------------|---------|----------|---------|---------|-------------------
+File                | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+--------------------|---------|----------|---------|---------|-------------------
+All files           |   78.45 |    65.23 |   82.11 |   79.34 |
+ components          |   85.67 |    72.45 |   88.92 |   86.23 |
+  AddToken/index.tsx|   92.31 |    85.71 |   100.0 |   91.67 | 45-48
+--------------------|---------|----------|---------|---------|-------------------
+```
+
+### HTML Coverage Report
+
+Detailed HTML report is generated in `coverage/lcov-report/index.html`:
+
+```bash
+# Open coverage report
+open coverage/lcov-report/index.html
+```
+
+### Coverage Configuration
+
+Coverage is collected from:
+- ✅ All TypeScript/TSX files in `src/`
+- ❌ Test files (`*.test.ts`, `*.test.tsx`)
+- ❌ Story files (`*.stories.tsx`)
+- ❌ Type definitions (`src/@types`)
+
+<Note>
+Coverage reports are sent to CodeClimate during CI runs for tracking over time.
+</Note>
+
+## Testing Patterns
+
+### Testing Hooks
+
+```typescript useCustomHook.test.ts
+import { renderHook, act } from '@testing-library/react'
+import { useCustomHook } from './useCustomHook'
+
+describe('useCustomHook', () => {
+  it('initializes with default values', () => {
+    const { result } = renderHook(() => useCustomHook())
+    
+    expect(result.current.value).toBe(0)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('updates value on action', () => {
+    const { result } = renderHook(() => useCustomHook())
+    
+    act(() => {
+      result.current.increment()
+    })
+    
+    expect(result.current.value).toBe(1)
+  })
+})
+```
+
+### Testing with Ocean.js
+
+```typescript
+import { Ocean } from '@oceanprotocol/lib'
+
+jest.mock('@oceanprotocol/lib')
+
+const mockOcean = {
+  assets: {
+    resolve: jest.fn().mockResolvedValue(mockDDO)
+  }
+}
+
+beforeEach(() => {
+  ;(Ocean as jest.Mock).mockImplementation(() => mockOcean)
+})
+
+it('fetches asset metadata', async () => {
+  const { result } = renderHook(() => useAsset('did:op:123'))
+  
+  await waitFor(() => {
+    expect(result.current.ddo).toEqual(mockDDO)
+  })
+})
+```
+
+### Testing GraphQL Queries
+
+```typescript
+import { createClient, Provider } from 'urql'
+import { never } from 'wonka'
+
+const mockClient = createClient({
+  url: 'http://localhost:9000',
+  exchanges: [],
+  executeQuery: () => never
+})
+
+jest.spyOn(mockClient, 'executeQuery').mockReturnValue({
+  data: { users: mockUsers },
+  error: undefined
+})
+
+render(
+  <Provider value={mockClient}>
+    <UserList />
+  </Provider>
+)
+```
+
+## Continuous Integration
+
+Tests run automatically on CI for every commit and pull request.
+
+### CI Test Pipeline
+
+1. **Dependency installation**
+2. **Pregenerate** - Build required files
+3. **Linting** - Code quality checks
+4. **Type checking** - TypeScript validation
+5. **Jest tests** - Full test suite
+6. **Coverage upload** - Send to CodeClimate
+
+### Local CI Simulation
+
+Run the same checks locally before pushing:
+
+```bash
+npm test
+```
+
+This ensures your code will pass CI checks.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Tests failing with module not found">
+    Ensure path aliases in `jest.config.js` match `tsconfig.json`:
+
+    ```bash
+    # Clear Jest cache
+    npm run jest -- --clearCache
+
+    # Run tests again
+    npm run jest
+    ```
+  </Accordion>
+
+  <Accordion title="Snapshot tests failing">
+    If snapshots are outdated after intentional changes:
+
+    ```bash
+    # Update all snapshots
+    npm run jest -- -u
+
+    # Update specific snapshot
+    npm run jest -- -u ComponentName
+    ```
+
+    Review changes carefully before committing!
+  </Accordion>
+
+  <Accordion title="Storybook won't start">
+    Common fixes:
+
+    ```bash
+    # Clear Storybook cache
+    rm -rf node_modules/.cache/storybook
+
+    # Reinstall dependencies
+    rm -rf node_modules
+    npm install
+
+    # Restart Storybook
+    npm run storybook
+    ```
+  </Accordion>
+
+  <Accordion title="Coverage not generating">
+    Ensure coverage is enabled in Jest config:
+
+    ```javascript jest.config.js
+    collectCoverage: true,
+    collectCoverageFrom: [
+      'src/**/*.{ts,tsx}',
+      '!src/**/*.{stories,test}.{ts,tsx}'
+    ]
+    ```
+
+    Run Jest directly:
+    ```bash
+    npm run jest -- --coverage
+    ```
+  </Accordion>
+
+  <Accordion title="Async tests timing out">
+    Increase test timeout:
+
+    ```typescript
+    it('async operation', async () => {
+      // Increase timeout to 10s
+      jest.setTimeout(10000)
+      
+      await longRunningOperation()
+    }, 10000) // Or set timeout here
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Behavior, Not Implementation" icon="lightbulb">
+    Focus on what the component does, not how it does it. Test user interactions and expected outcomes.
+  </Card>
+  <Card title="Use Storybook for Visual Tests" icon="eye">
+    Create stories for all component variants. They auto-generate tests and provide documentation.
+  </Card>
+  <Card title="Keep Tests Fast" icon="gauge-high">
+    Mock external dependencies. Use `jest.fn()` for functions and `jest.mock()` for modules.
+  </Card>
+  <Card title="Maintain High Coverage" icon="chart-line">
+    Aim for >80% coverage. Focus on critical paths and edge cases.
+  </Card>
+  <Card title="Run Tests Before Committing" icon="code-commit">
+    Always run `npm test` before pushing. Pre-commit hooks help enforce this.
+  </Card>
+  <Card title="Write Descriptive Test Names" icon="file-signature">
+    Test names should clearly describe what they test. Use `it('does something specific when...')`.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Local Development" icon="laptop-code" href="/development/local-development">
+    Set up your development environment
+  </Card>
+  <Card title="Barge Integration" icon="docker" href="/development/barge-integration">
+    Test with local Ocean components
+  </Card>
+  <Card title="Components Reference" icon="puzzle-piece" href="/reference/components">
+    Learn about component testing
+  </Card>
+  <Card title="Production Build" icon="hammer" href="/deployment/production-build">
+    Prepare for production deployment
+  </Card>
+</CardGroup>

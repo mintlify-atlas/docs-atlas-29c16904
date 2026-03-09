@@ -1,0 +1,513 @@
+---
+title: Wallet Setup and Configuration
+description: Complete guide to setting up and configuring your Web3 wallet for AgrospAI Data Space Portal
+---
+
+Connect and configure your Web3 wallet to interact with the AgrospAI Data Space Portal. This guide covers wallet setup, network configuration, and token management.
+
+## Supported Wallets
+
+The portal supports multiple wallet providers through WalletConnect and direct integrations:
+
+- **MetaMask**: Browser extension and mobile app
+- **WalletConnect**: Compatible with 100+ wallets
+- **Coinbase Wallet**: Browser extension and mobile
+- **Trust Wallet**: Mobile application
+- **Brave Wallet**: Built into Brave browser
+
+<Tip>
+MetaMask is recommended for the best user experience and full feature support.
+</Tip>
+
+## Initial Setup
+
+<Steps>
+
+<Step title="Install Wallet Extension">
+
+### MetaMask Installation
+
+1. Visit [metamask.io](https://metamask.io/)
+2. Click "Download" for your browser
+3. Add extension to browser
+4. Follow setup wizard
+
+**Create New Wallet**
+- Set a strong password
+- Save your Secret Recovery Phrase securely
+- Confirm recovery phrase
+- Complete setup
+
+<Warning>
+Never share your Secret Recovery Phrase. Store it offline in a secure location. Anyone with this phrase can access your funds.
+</Warning>
+
+**Import Existing Wallet**
+- Select "Import wallet"
+- Enter your Secret Recovery Phrase
+- Set password
+- Complete import
+
+</Step>
+
+<Step title="Connect to Portal">
+
+Connect your wallet to the AgrospAI portal:
+
+1. Click "Connect Wallet" button in header
+2. Select your wallet provider
+3. Approve connection in wallet popup
+4. Confirm account selection
+
+```tsx
+// Wallet connection using Wagmi
+import { useAccount, useConnect } from 'wagmi'
+
+const { address, isConnected } = useAccount()
+const { connect, connectors } = useConnect()
+
+// Connect to wallet
+connect({ connector: connectors[0] })
+```
+
+**Connection Status**
+- Green indicator: Connected and ready
+- Yellow indicator: Wrong network
+- Red indicator: Disconnected
+
+</Step>
+
+<Step title="Configure Networks">
+
+Add supported networks to your wallet:
+
+### Network Configuration
+
+The portal supports multiple networks. Add them to MetaMask:
+
+**Example: Polygon Network**
+```json
+{
+  "chainId": "0x89",
+  "chainName": "Polygon Mainnet",
+  "nativeCurrency": {
+    "name": "MATIC",
+    "symbol": "MATIC",
+    "decimals": 18
+  },
+  "rpcUrls": ["https://polygon-rpc.com"],
+  "blockExplorerUrls": ["https://polygonscan.com"]
+}
+```
+
+**Automatic Network Switching**
+
+The portal prompts network changes when needed:
+
+```tsx
+import { useNetwork, useSwitchNetwork } from 'wagmi'
+
+const { chain } = useNetwork()
+const { switchNetwork } = useSwitchNetwork()
+
+// Switch to asset's network
+if (asset.chainId !== chain?.id) {
+  switchNetwork?.(asset.chainId)
+}
+```
+
+<Note>
+Some operations require specific networks. The portal will prompt you to switch networks when necessary.
+</Note>
+
+</Step>
+
+<Step title="Add Tokens">
+
+### Import Base Tokens
+
+Add tokens used for payments:
+
+**OCEAN Token Example**
+```json
+{
+  "address": "0x967da4048cD07aB37855c090aAF366e4ce1b9F48",
+  "symbol": "OCEAN",
+  "decimals": 18,
+  "image": "https://gateway.pinata.cloud/ipfs/..."
+}
+```
+
+**Add Token to MetaMask**
+1. Open MetaMask
+2. Scroll to bottom, click "Import tokens"
+3. Select "Custom token"
+4. Enter token address
+5. Confirm token details
+6. Click "Add Custom Token"
+
+**Portal Token Integration**
+
+The portal can automatically prompt token addition:
+
+```tsx
+import { useMarketMetadata } from '@context/MarketMetadata'
+
+const { approvedBaseTokens } = useMarketMetadata()
+
+// Display approved tokens for network
+approvedBaseTokens.forEach(token => {
+  // Token information for wallet import
+})
+```
+
+### Import Custom Tokens
+
+For marketplace-specific tokens, use the token import feature:
+
+1. Navigate to User Settings
+2. Select "Custom Tokens"
+3. Click "Import Token"
+4. Enter token contract address
+5. Verify token details
+6. Complete import
+
+</Step>
+
+<Step title="Fund Your Wallet">
+
+### Obtain Network Tokens
+
+You need native tokens for gas fees:
+
+**Mainnet Networks**
+- Purchase from exchanges (Coinbase, Binance, Kraken)
+- Transfer from another wallet
+- Use on-ramp services (MoonPay, Wyre)
+
+**Testnet Networks**
+
+Use faucets for test tokens:
+
+```markdown
+### Available Faucets
+
+- Mumbai (Polygon Testnet): https://faucet.polygon.technology/
+- Goerli (Ethereum Testnet): https://goerlifaucet.com/
+- Sepolia (Ethereum Testnet): https://sepoliafaucet.com/
+```
+
+**Faucet Usage**
+1. Visit faucet website
+2. Enter your wallet address
+3. Complete captcha/verification
+4. Receive test tokens (usually within minutes)
+
+<Tip>
+For testnet environments, check the portal's onboarding guide for direct faucet links specific to your network.
+</Tip>
+
+### Acquire Base Tokens
+
+Obtain tokens for purchasing assets:
+
+**DEX (Decentralized Exchange)**
+- Uniswap
+- SushiSwap
+- QuickSwap (Polygon)
+
+**CEX (Centralized Exchange)**
+- Binance
+- Coinbase
+- Kraken
+
+**Example: Swap for OCEAN**
+```tsx
+// User typically swaps ETH/MATIC for OCEAN
+// via external DEX, then returns to portal
+```
+
+</Step>
+
+</Steps>
+
+## Wallet Management
+
+### Viewing Balances
+
+The portal displays your token balances:
+
+```tsx
+import useBalance from '@hooks/useBalance'
+
+const { balance } = useBalance()
+
+// Balance structure
+interface UserBalance {
+  native: {
+    symbol: string      // e.g., "ETH", "MATIC"
+    balance: string     // formatted balance
+  }
+  approved?: {
+    [address: string]: string  // token address => balance
+  }
+}
+```
+
+**Balance Display**
+- Native token (ETH, MATIC, etc.)
+- Approved base tokens (OCEAN, USDC, etc.)
+- Datatokens for owned assets
+
+### Managing Transactions
+
+**Transaction History**
+
+View in MetaMask:
+1. Open MetaMask
+2. Click "Activity" tab
+3. View all transactions
+4. Click transaction for details
+
+**Transaction States**
+- Pending: Waiting for confirmation
+- Confirmed: Successfully completed
+- Failed: Transaction reverted
+- Dropped: Replaced or cancelled
+
+**Speeding Up Transactions**
+```tsx
+// If transaction is stuck
+// 1. Click pending transaction in MetaMask
+// 2. Select "Speed Up"
+// 3. Increase gas price
+// 4. Confirm new transaction
+```
+
+### Security Best Practices
+
+<Warning>
+**Critical Security Measures**
+
+1. **Never share private keys or recovery phrases**
+2. **Verify all transaction details before confirming**
+3. **Use hardware wallets for large amounts**
+4. **Keep software updated**
+5. **Beware of phishing attempts**
+6. **Bookmark the portal URL**
+7. **Enable wallet password/biometrics**
+8. **Review token approvals regularly**
+</Warning>
+
+**Checking Token Approvals**
+
+```tsx
+import { Datatoken } from '@oceanprotocol/lib'
+
+// Check allowance
+const datatoken = new Datatoken(signer)
+const allowance = await datatoken.allowance(
+  tokenAddress,
+  ownerAddress,
+  spenderAddress
+)
+```
+
+Tools for managing approvals:
+- [Revoke.cash](https://revoke.cash/)
+- [Etherscan Token Approvals](https://etherscan.io/tokenapprovalchecker)
+
+## Network Switching
+
+### Automatic Network Detection
+
+The portal detects network mismatches:
+
+```tsx
+import { useAsset } from '@context/Asset'
+import useNetworkMetadata from '@hooks/useNetworkMetadata'
+
+const { isAssetNetwork } = useAsset()
+const { isSupportedOceanNetwork } = useNetworkMetadata()
+
+if (!isAssetNetwork) {
+  // Prompt: "Please switch to {network} to interact with this asset"
+}
+
+if (!isSupportedOceanNetwork) {
+  // Prompt: "Unsupported network"
+}
+```
+
+### Manual Network Switching
+
+**Via Portal**
+1. Click network indicator in header
+2. Select desired network from dropdown
+3. Approve switch in wallet
+
+**Via MetaMask**
+1. Open MetaMask
+2. Click network dropdown at top
+3. Select network
+4. Refresh portal page
+
+## Advanced Configuration
+
+### Custom RPC Endpoints
+
+Improve performance with custom RPC providers:
+
+**Infura Configuration**
+```json
+{
+  "rpcUrls": [
+    "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
+  ]
+}
+```
+
+**Alchemy Configuration**
+```json
+{
+  "rpcUrls": [
+    "https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY"
+  ]
+}
+```
+
+### Hardware Wallet Integration
+
+**Ledger Setup**
+1. Connect Ledger device
+2. Open Ethereum app on device
+3. In MetaMask, select "Connect Hardware Wallet"
+4. Choose Ledger
+5. Select account to use
+6. Confirm on device
+
+**Trezor Setup**
+1. Connect Trezor device
+2. In MetaMask, select "Connect Hardware Wallet"
+3. Choose Trezor
+4. Complete Trezor Connect verification
+5. Select account
+
+<Tip>
+Hardware wallets provide maximum security for high-value operations. Recommended for publishers and frequent traders.
+</Tip>
+
+### Multiple Account Management
+
+**Switching Accounts**
+```tsx
+import { useAccount } from 'wagmi'
+
+const { address } = useAccount()
+
+// Portal automatically updates when account changes
+// All operations use currently connected account
+```
+
+**Account Isolation**
+- Each account has separate:
+  - Asset ownership
+  - Transaction history
+  - Token balances
+  - Allowlist/denylist status
+
+## Troubleshooting
+
+### Connection Issues
+
+**Wallet won't connect**
+1. Refresh the page
+2. Disable conflicting extensions
+3. Try incognito/private mode
+4. Clear browser cache
+5. Update wallet extension
+
+**"Unsupported chain" error**
+```tsx
+// Portal only supports configured networks
+// Check appConfig.rbacUrl for network list
+```
+
+Solution:
+- Switch to supported network
+- Contact admin to add network support
+
+### Transaction Failures
+
+**"Insufficient funds for gas"**
+- Add native tokens to wallet
+- Reduce transaction amount to leave room for gas
+
+**"Transaction underpriced"**
+- Increase gas price
+- Wait for network congestion to decrease
+- Use "Fast" or "Rapid" gas settings
+
+**"Nonce too low"**
+```tsx
+// Reset account in MetaMask:
+// Settings > Advanced > Reset Account
+```
+
+**"Execution reverted"**
+- Check asset state (may be disabled by publisher)
+- Verify token allowances are sufficient
+- Ensure you meet access requirements (allowlist)
+- Check for smart contract errors in block explorer
+
+### Balance Display Issues
+
+**Tokens not showing**
+1. Manually import token (see Add Tokens step)
+2. Verify you're on correct network
+3. Check token balance on block explorer
+4. Refresh browser page
+
+**Balance incorrect**
+```tsx
+// Force balance refresh
+const { refetch } = useBalance()
+refetch()
+```
+
+## Wallet Best Practices
+
+1. **Use separate wallets**: Different wallets for different purposes (trading, holding, testing)
+2. **Regular backups**: Keep multiple copies of recovery phrase in secure locations
+3. **Test with small amounts**: Verify operations work before large transactions
+4. **Monitor token approvals**: Revoke unused approvals periodically
+5. **Enable notifications**: Stay informed of account activity
+6. **Verify addresses**: Double-check addresses before sending
+7. **Update software**: Keep wallet and browser extensions current
+8. **Use strong passwords**: Unique, complex passwords for wallet access
+9. **Consider hardware wallet**: For high-value assets
+10. **Review transactions carefully**: Check all details before confirming
+
+## Getting Help
+
+If you encounter wallet issues:
+
+1. **Portal Support**: Check FAQ and documentation
+2. **Wallet Provider**: MetaMask support, WalletConnect docs
+3. **Community**: Discord, Telegram channels
+4. **Block Explorer**: Verify transaction status
+
+## Related Resources
+
+- [Publishing Assets](/guides/publishing-assets)
+- [Consuming Assets](/guides/consuming-assets)
+- [Compute-to-Data Jobs](/guides/compute-jobs)
+- [Automation Features](/guides/automation)
+
+## Code References
+
+Key implementation files:
+- Wallet connection: `src/@utils/wallet/EthersWalletConnector.ts`
+- Balance management: `src/@hooks/useBalance.ts`
+- Network utilities: `src/@hooks/useNetworkMetadata.ts`
+- Account state: `wagmi useAccount, useNetwork hooks`

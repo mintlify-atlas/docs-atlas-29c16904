@@ -1,0 +1,155 @@
+---
+title: Introduction
+description: Welcome to the AgrospAI Data Space Portal - A decentralized marketplace for agricultural data powered by Ocean Protocol
+---
+
+# Welcome to AgrospAI Data Space Portal
+
+The AgrospAI Data Space Portal is a next-generation Web3 marketplace designed specifically for the agricultural sector, enabling secure and decentralized data exchange. Built on Ocean Protocol and integrated with the Gaia-X ecosystem, it provides a trusted environment for publishing, discovering, and accessing agricultural datasets and AI algorithms.
+
+<Note>
+The portal is part of the Pontus-X initiative, a Gaia-X Web3 Ecosystem that ensures European data sovereignty and compliance.
+</Note>
+
+## What is AgrospAI Data Space?
+
+AgrospAI Data Space is a specialized data marketplace that combines the power of blockchain technology with agricultural data management. It enables:
+
+- **Data Publishers** to monetize their agricultural datasets securely
+- **Data Consumers** to access high-quality agricultural data and AI models
+- **Researchers** to collaborate and share insights within a compliant framework
+- **Developers** to build innovative agricultural solutions using trusted data
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Decentralized Data Marketplace" icon="database">
+    Publish and discover agricultural datasets with blockchain-backed provenance and access control.
+  </Card>
+  
+  <Card title="Ocean Protocol Integration" icon="water">
+    Leverage Ocean Protocol's robust infrastructure for data tokenization and secure access management.
+  </Card>
+  
+  <Card title="Gaia-X Compliance" icon="shield-check">
+    Built with European data sovereignty principles, ensuring GDPR compliance and trusted data exchange.
+  </Card>
+  
+  <Card title="Smart Contract Pricing" icon="coins">
+    Flexible pricing models including fixed pricing, free distribution, and datatoken-based access.
+  </Card>
+  
+  <Card title="Compute-to-Data" icon="server">
+    Run algorithms on datasets without direct data access, preserving privacy and confidentiality.
+  </Card>
+  
+  <Card title="Verifiable Credentials" icon="certificate">
+    Support for W3C Verifiable Presentations for trusted identity and compliance verification.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+The portal is built with modern Web3 technologies:
+
+<Tabs>
+  <Tab title="Frontend">
+    - **Next.js 13** - React framework with server-side rendering
+    - **TypeScript** - Type-safe development
+    - **Wagmi** - React Hooks for Ethereum
+    - **ConnectKit** - Elegant wallet connection UI
+  </Tab>
+  
+  <Tab title="Blockchain">
+    - **Ocean Protocol** - Decentralized data exchange protocol
+    - **Ethereum** - Smart contract platform
+    - **IPFS** - Distributed file storage
+    - **The Graph** - Blockchain indexing and querying
+  </Tab>
+  
+  <Tab title="Data Layer">
+    - **Aquarius** - Ocean Protocol metadata cache
+    - **Provider** - Off-chain compute and data services
+    - **Subgraph** - GraphQL API for on-chain data
+  </Tab>
+</Tabs>
+
+## Key Concepts
+
+<AccordionGroup>
+  <Accordion title="Datatokens">
+    Datatokens are ERC-20 tokens that represent access rights to a dataset or service. Each asset has its own unique datatoken. To access a dataset, users must acquire the corresponding datatoken either by purchasing it or receiving it from the publisher.
+  </Accordion>
+  
+  <Accordion title="NFTs (Non-Fungible Tokens)">
+    Each published asset is represented by an NFT (ERC-721 token) that establishes ownership and provenance. The NFT holder has control over the asset's metadata and pricing settings.
+  </Accordion>
+  
+  <Accordion title="DDO (Decentralized Data Object)">
+    The DDO is a JSON document containing all metadata about an asset, including its description, services, pricing, and access control information. It follows the Ocean Protocol specification and is stored encrypted on-chain.
+  </Accordion>
+  
+  <Accordion title="DID (Decentralized Identifier)">
+    Each asset has a unique DID (e.g., `did:op:abc123...`) that serves as its permanent identifier across the Ocean Protocol network. DIDs are blockchain-agnostic and resolve to the asset's DDO.
+  </Accordion>
+</AccordionGroup>
+
+## Supported Networks
+
+The AgrospAI Data Space Portal supports multiple blockchain networks:
+
+<Info>
+The default network is **Pontus-X Test** (Chain ID: 32456), a Gaia-X compliant test network specifically designed for European data spaces.
+</Info>
+
+```javascript title="Supported Chain IDs" src/app.config.js
+chainIdsSupported: getSupportedChainIds(),
+```
+
+Configuration is managed through the `chains.config.js` file, allowing easy addition of new networks.
+
+## Use Cases
+
+The portal enables various agricultural data scenarios:
+
+<Steps>
+  <Step title="Soil Data Marketplace">
+    Farmers and agricultural companies can publish soil composition data, enabling precision agriculture services and research.
+  </Step>
+  
+  <Step title="Crop Yield Predictions">
+    AI models trained on historical yield data can be published and accessed by farmers for decision support.
+  </Step>
+  
+  <Step title="Weather Data Integration">
+    Meteorological data can be combined with farm data to provide actionable insights for crop management.
+  </Step>
+  
+  <Step title="Supply Chain Traceability">
+    Track agricultural products from farm to table with immutable blockchain records.
+  </Step>
+</Steps>
+
+## Getting Support
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book" href="/quickstart">
+    Explore our comprehensive guides and API references
+  </Card>
+  
+  <Card title="Terms of Service" icon="file-contract" href="https://portal.agrospai.udl.cat/terms">
+    Review the portal's terms and conditions
+  </Card>
+</CardGroup>
+
+<Warning>
+This portal is built for the AgrospAI project and maintains compliance with Gaia-X principles and GDPR regulations. All data transactions are subject to the portal's terms of service.
+</Warning>
+
+## Next Steps
+
+Ready to get started? Follow our [Quick Start Guide](/quickstart) to connect your wallet and perform your first data transaction, or dive into the [Architecture Overview](/architecture) to understand the technical implementation.
+
+<Tip>
+New to Web3? Check out the onboarding module in the portal that walks you through setting up MetaMask and acquiring test tokens.
+</Tip>

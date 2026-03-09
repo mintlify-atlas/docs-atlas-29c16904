@@ -1,0 +1,255 @@
+---
+title: Marketplace Fees
+description: Configure marketplace fee structure for publishers and consumers
+---
+
+The AgrospAI Data Space Portal supports a flexible fee structure for both publishers and consumers. This page explains how marketplace fees work and how to configure them.
+
+## Fee Structure Overview
+
+The marketplace supports four types of fees:
+
+1. **Publisher Market Order Fee** - Absolute fee taken when an asset is ordered
+2. **Publisher Market Fixed Swap Fee** - Percentage fee when datatokens are bought from fixed rate exchange
+3. **Consume Market Order Fee** - Absolute fee taken when consuming an asset
+4. **Consume Market Fixed Swap Fee** - Percentage fee when buying datatokens as a consumer
+
+## Fee Configuration
+
+Fees are configured through environment variables and the application configuration file.
+
+### Fee Recipient Address
+
+<ParamField path="NEXT_PUBLIC_MARKET_FEE_ADDRESS" type="string" required>
+  The Ethereum address where all marketplace fees will be sent.
+  
+  **Default:** `0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d`
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  marketFeeAddress:
+    process.env.NEXT_PUBLIC_MARKET_FEE_ADDRESS ||
+    '0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d'
+  ```
+  
+  **Set in .env:**
+  ```bash
+  NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d"
+  ```
+</ParamField>
+
+<Warning>
+  Ensure this address is controlled by your organization. All marketplace fees will be sent to this address and cannot be recovered if set incorrectly.
+</Warning>
+
+## Publisher Fees
+
+Publishers can earn fees from assets published on the marketplace.
+
+### Publisher Market Order Fee
+
+<ParamField path="NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE" type="string">
+  Absolute fee value taken upon ordering an asset. This fee is declared during ERC20 datatoken creation.
+  
+  **Default:** `0`
+  
+  **Type:** Absolute value
+  
+  **When charged:** When a consumer orders/purchases an asset
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  publisherMarketOrderFee:
+    process.env.NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE || '0'
+  ```
+  
+  **Example .env:**
+  ```bash
+  # Set 1 token fee per order
+  NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="1"
+  ```
+</ParamField>
+
+### Publisher Market Fixed Swap Fee
+
+<ParamField path="NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE" type="string">
+  Percentage fee received by the publisher market when a datatoken is bought from a fixed rate exchange.
+  
+  **Default:** `0`
+  
+  **Type:** Percentage
+  
+  **When charged:** When datatokens are purchased through fixed rate pricing
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  publisherMarketFixedSwapFee:
+    process.env.NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE || '0'
+  ```
+  
+  **Example .env:**
+  ```bash
+  # Set 1% fee on fixed rate swaps
+  NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="1"
+  ```
+</ParamField>
+
+## Consumer Fees
+
+Consumers pay fees when purchasing or accessing data assets.
+
+### Consume Market Order Fee
+
+<ParamField path="NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE" type="string">
+  Absolute fee value taken upon ordering an asset. This fee is specified at the time of order.
+  
+  **Default:** `0`
+  
+  **Type:** Absolute value
+  
+  **When charged:** When a consumer places an order for an asset
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  consumeMarketOrderFee:
+    process.env.NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE || '0'
+  ```
+  
+  **Example .env:**
+  ```bash
+  # Set 1 token fee for consuming
+  NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="1"
+  ```
+</ParamField>
+
+### Consume Market Fixed Swap Fee
+
+<ParamField path="NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE" type="string">
+  Percentage fee received by the consume market when a datatoken is bought from a fixed rate exchange.
+  
+  **Default:** `0`
+  
+  **Type:** Percentage
+  
+  **When charged:** When consumers buy datatokens through fixed rate pricing
+  
+  **Configuration in app.config.js:**
+  ```javascript
+  consumeMarketFixedSwapFee:
+    process.env.NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE || '0'
+  ```
+  
+  **Example .env:**
+  ```bash
+  # Set 1% fee on fixed rate swaps
+  NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="1"
+  ```
+</ParamField>
+
+## Fee Examples
+
+### Example 1: No Fees (Default)
+
+By default, the marketplace operates with zero fees:
+
+```bash .env
+NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d"
+NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="0"
+NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="0"
+NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="0"
+NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="0"
+```
+
+### Example 2: Publisher-Only Fees
+
+Charge publishers 1 token per order and 1% on fixed rate swaps:
+
+```bash .env
+NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d"
+NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="1"
+NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="1"
+NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="0"
+NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="0"
+```
+
+### Example 3: Consumer-Only Fees
+
+Charge consumers 1 token per order and 1% on fixed rate swaps:
+
+```bash .env
+NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d"
+NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="0"
+NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="0"
+NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="1"
+NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="1"
+```
+
+### Example 4: Balanced Fee Structure
+
+Charge both publishers and consumers:
+
+```bash .env
+NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x9984b2453eC7D99a73A5B3a46Da81f197B753C8d"
+NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="1"
+NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="1"
+NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="1"
+NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="1"
+```
+
+## How Fees Are Applied
+
+### Order Fee Flow
+
+1. Consumer initiates an asset purchase/order
+2. Order fee (if configured) is calculated
+3. Fee is transferred to the `marketFeeAddress`
+4. Remaining payment goes to the publisher
+
+### Fixed Swap Fee Flow
+
+1. User buys datatokens from fixed rate exchange
+2. Swap percentage fee (if configured) is calculated
+3. Fee is transferred to the `marketFeeAddress`
+4. Remaining tokens are delivered to the buyer
+
+## Fee Implementation Details
+
+Fees are implemented at the smart contract level:
+
+- **Order fees** are declared during ERC20 datatoken creation and enforced on-chain
+- **Fixed swap fees** are applied during the token exchange process
+- All fees are automatically sent to the configured `marketFeeAddress`
+
+## Ocean Protocol Fee Collector
+
+In addition to marketplace fees, Ocean Protocol has its own community fee collector:
+
+**Pontus-X DevNet:**
+```javascript
+opfCommunityFeeCollector: '0x1f84fB438292269219f9396D57431eA9257C23d4'
+```
+
+**Pontus-X TestNet:**
+```javascript
+opfCommunityFeeCollector: '0xACC8d1B2a0007951fb4ed622ACB1C4fcCAbe778D'
+```
+
+These addresses are used for Ocean Protocol's community fees, which are separate from marketplace fees.
+
+## Best Practices
+
+<Tip>
+  **Test fee configurations** on a testnet before deploying to production to ensure fees are calculated correctly.
+</Tip>
+
+<Tip>
+  **Start with low fees** to encourage adoption, then adjust based on marketplace activity and operational costs.
+</Tip>
+
+<Tip>
+  **Communicate fees clearly** to publishers and consumers through your marketplace UI and terms of service.
+</Tip>
+
+<Warning>
+  Changing fee values requires updating environment variables and redeploying the application. Existing assets may retain old fee structures defined at creation time.
+</Warning>

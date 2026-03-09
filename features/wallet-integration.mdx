@@ -1,0 +1,626 @@
+---
+title: 'Wallet Integration'
+description: 'Connect your Web3 wallet to interact with the AgrospAI Data Space Portal'
+icon: 'wallet'
+---
+
+The AgrospAI Data Space Portal uses Web3 wallet integration to enable secure blockchain transactions for publishing assets, purchasing data, and running compute jobs. Built on wagmi and ConnectKit, the platform supports multiple wallet providers.
+
+## Supported Wallets
+
+<CardGroup cols={3}>
+  <Card title="MetaMask" icon="fox">
+    Most popular browser extension wallet
+  </Card>
+  <Card title="WalletConnect" icon="mobile">
+    Connect mobile wallets via QR code
+  </Card>
+  <Card title="Coinbase Wallet" icon="building-columns">
+    Official Coinbase browser extension
+  </Card>
+  <Card title="Rainbow" icon="rainbow">
+    Mobile-first Ethereum wallet
+  </Card>
+  <Card title="Trust Wallet" icon="shield-check">
+    Multi-chain mobile wallet
+  </Card>
+  <Card title="JSON Wallet" icon="file-code">
+    Import wallet from JSON keyfile
+  </Card>
+</CardGroup>
+
+## Wallet Connection
+
+### Account Component
+
+The wallet UI displays connection status and account information:
+
+```tsx
+// From: src/components/Header/Wallet/Account.tsx
+const Account = forwardRef((props, ref: any) => {
+  const { address: accountId } = useAccount()
+  const { setOpen } = useModal()
+
+  async function handleActivation(e: FormEvent<HTMLButtonElement>) {
+    e.preventDefault()
+    setOpen(true) // Open ConnectKit modal
+  }
+
+  return accountId ? (
+    <button
+      className={styles.button}
+      aria-label="Account"
+      ref={ref}
+      onClick={(e) => e.preventDefault()}
+    >
+      <Avatar accountId={accountId} />
+      <span className={styles.address} title={accountId}>
+        {accountTruncate(accountId)}
+      </span>
+      <Caret aria-hidden="true" className={styles.caret} />
+    </button>
+  ) : (
+    <button
+      className={`${styles.button} ${styles.initial}`}
+      onClick={(e) => handleActivation(e)}
+      ref={ref}
+    >
+      Connect <span>Wallet</span>
+    </button>
+  )
+})
+
+export default Account
+```
+
+### Wallet Details Panel
+
+Once connected, users can view wallet information and manage their connection:
+
+```tsx
+// From: src/components/Header/Wallet/Details.tsx
+export default function Details(): ReactElement {
+  const { address: accountId, connector: activeConnector } = useAccount()
+  const { connect } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  return (
+    <div className={styles.details}>
+      <ul>
+        <li className={styles.profileLink}>
+          <Avatar accountId={accountId} />
+          <MenuLink
+            link="/profile"
+            name="View Profile"
+            className={styles.profileButton}
+          />
+        </li>
+        
+        <li className={styles.bookmarksLink}>
+          <Bookmark />
+          <MenuLink
+            link="/bookmarks"
+            name="View Bookmarks"
+            className={styles.bookmarksButton}
+          />
+        </li>
+        
+        <li>
+          <div title="Connected provider" className={styles.walletInfo}>
+            <span className={styles.walletLogoWrap}>
+              {activeConnector?.name}
+            </span>
+          </div>
+          
+          <div className={styles.actions}>
+            {/* Switch Wallet disabled for JSON wallet */}
+            {activeConnector?.id !== JSON_WALLET_CONNECTOR_ID && (
+              <Button
+                style="text"
+                size="small"
+                onClick={async () => {
+                  connect()
+                }}
+              >
+                Switch Wallet
+              </Button>
+            )}
+            
+            <Button
+              style="text"
+              size="small"
+              onClick={() => {
+                disconnect()
+                location.reload()
+              }}
+            >
+              Disconnect
+            </Button>
+          </div>
+        </li>
+      </ul>
+    </div>
+  )
+}
+```
+
+<Info>
+  The wallet connection persists across browser sessions. Users remain connected until they explicitly disconnect.
+</Info>
+
+## Balance Management
+
+The platform tracks both native token and approved base token balances:
+
+```tsx
+// From: src/@hooks/useBalance.tsx
+function useBalance(): BalanceProviderValue {
+  const { address } = useAccount()
+  const { data: balanceNativeToken } = useBalanceWagmi({ address })
+  const web3provider = useProvider()
+  const { approvedBaseTokens } = useMarketMetadata()
+  const { chain } = useNetwork()
+
+  const [balance, setBalance] = useState<UserBalance>({
+    native: {
+      symbol: 'eth',
+      balance: '0'
+    }
+  })
+
+  // Get approved token balances
+  const getApprovedTokenBalances = useCallback(
+    async (address: string): Promise<TokenBalances> => {
+      const newBalance: TokenBalances = {}
+
+      if (approvedBaseTokens?.length > 0) {
+        await Promise.allSettled(
+          approvedBaseTokens.map(async (token) => {
+            const { address: tokenAddress, decimals, symbol } = token
+            const tokenBalance = await getTokenBalance(
+              address,
+              decimals,
+              tokenAddress,
+              web3provider
+            )
+            newBalance[symbol.toLocaleLowerCase()] = tokenBalance
+          })
+        )
+      }
+
+      return newBalance
+    },
+    [approvedBaseTokens, web3provider]
+  )
+
+  // Fetch user balance
+  const getUserBalance = useCallback(async () => {
+    if (
+      !balanceNativeToken?.formatted ||
+      !address ||
+      !chain?.id ||
+      !web3provider
+    )
+      return
+
+    try {
+      const userBalance = balanceNativeToken?.formatted
+      const key = balanceNativeToken?.symbol.toLowerCase()
+
+      const newBalance: UserBalance = {
+        native: {
+          symbol: key,
+          balance: userBalance
+        },
+        approved: await getApprovedTokenBalances(address)
+      }
+
+      setBalance(newBalance)
+      LoggerInstance.log('[useBalance] Balance: ', newBalance)
+    } catch (error) {
+      LoggerInstance.error('[useBalance] Error: ', error.message)
+    }
+  }, [
+    address,
+    chain?.id,
+    web3provider,
+    balanceNativeToken,
+    getApprovedTokenBalances
+  ])
+
+  useEffect(() => {
+    getUserBalance()
+  }, [getUserBalance])
+
+  return { balance, getApprovedTokenBalances }
+}
+
+export default useBalance
+```
+
+### Balance Display
+
+```tsx
+// Display user balances
+<BalanceDisplay>
+  <BalanceItem
+    symbol={balance.native.symbol}
+    amount={balance.native.balance}
+    label="Native Token"
+  />
+  
+  {Object.entries(balance.approved || {}).map(([symbol, amount]) => (
+    <BalanceItem
+      key={symbol}
+      symbol={symbol}
+      amount={amount}
+      label="Available"
+    />
+  ))}
+</BalanceDisplay>
+```
+
+<Note>
+  Balances are automatically refreshed when transactions complete or when switching networks.
+</Note>
+
+## Network Management
+
+### Network Selection
+
+Users can switch between supported blockchain networks:
+
+```tsx
+// From: src/components/Header/NetworkMenu/
+<NetworkMenu>
+  {supportedNetworks.map((network) => (
+    <NetworkOption
+      key={network.chainId}
+      network={network}
+      isActive={currentChainId === network.chainId}
+      onClick={() => switchNetwork(network.chainId)}
+    >
+      <NetworkIcon src={network.icon} />
+      <NetworkName>{network.name}</NetworkName>
+    </NetworkOption>
+  ))}
+</NetworkMenu>
+```
+
+### Multi-Chain Support
+
+Assets can be published and accessed across multiple networks:
+
+```tsx
+const supportedNetworks = [
+  { chainId: 1, name: 'Ethereum', icon: 'ethereum.svg' },
+  { chainId: 137, name: 'Polygon', icon: 'polygon.svg' },
+  { chainId: 56, name: 'BNB Chain', icon: 'bnb.svg' },
+  { chainId: 1284, name: 'Moonbeam', icon: 'moonbeam.svg' },
+  { chainId: 246, name: 'Energy Web', icon: 'ewc.svg' }
+]
+```
+
+### Network Validation
+
+The platform validates network compatibility before transactions:
+
+```tsx
+const { isSupportedOceanNetwork } = useNetworkMetadata()
+const { isAssetNetwork } = useAsset()
+
+const isDisabled =
+  !isAssetNetwork || // User on wrong network for this asset
+  !isSupportedOceanNetwork || // Network not supported
+  !isBalanceSufficient // Insufficient funds
+```
+
+<Warning>
+  Always ensure you're connected to the correct network before initiating transactions. Assets deployed on one network cannot be accessed from another.
+</Warning>
+
+## Transaction Signing
+
+### Signer Management
+
+The platform uses wagmi's signer for transaction signing:
+
+```tsx
+const { data: signer } = useSigner()
+const { address: accountId } = useAccount()
+
+// Use signer for transactions
+const datatoken = new Datatoken(signer)
+const tx = await datatoken.startOrder(
+  datatokenAddress,
+  accountId,
+  serviceIndex,
+  providerFee,
+  consumeMarketFee
+)
+
+const receipt = await tx.wait()
+```
+
+### Transaction Flow
+
+<Steps>
+  <Step title="Initiate Transaction">
+    User clicks an action button (e.g., "Buy", "Publish", "Start Compute").
+  </Step>
+  
+  <Step title="Wallet Prompt">
+    The connected wallet displays a transaction approval prompt with details.
+  </Step>
+  
+  <Step title="User Approval">
+    User reviews gas fees and transaction details, then approves or rejects.
+  </Step>
+  
+  <Step title="Transaction Submission">
+    Approved transaction is broadcast to the blockchain network.
+  </Step>
+  
+  <Step title="Confirmation">
+    Platform waits for transaction confirmation and updates UI.
+  </Step>
+</Steps>
+
+### Token Approvals
+
+Before spending tokens, users must approve the contract:
+
+```typescript
+// From: src/@utils/order.ts
+// Approve base token spending
+const tx = await approve(
+  signer,
+  config,
+  accountId,
+  asset.accessDetails.baseToken.address,
+  config.fixedRateExchangeAddress,
+  orderPriceAndFees.price,
+  false
+)
+
+const txApprove = typeof tx !== 'number' ? await tx.wait() : tx
+if (!txApprove) {
+  throw new Error('Token approval failed')
+}
+```
+
+<Tabs>
+  <Tab title="Fixed Amount">
+    Approve the exact amount needed for the transaction. More secure but requires approval for each transaction.
+    
+    ```typescript
+    await approve(signer, config, accountId, tokenAddress, spender, '10.0', false)
+    ```
+  </Tab>
+  
+  <Tab title="Infinite Approval">
+    Approve unlimited spending. Convenient but less secure. Use only with trusted contracts.
+    
+    ```typescript
+    await approve(signer, config, accountId, tokenAddress, spender, MAX_UINT256, true)
+    ```
+  </Tab>
+</Tabs>
+
+## Automation Wallet
+
+The platform supports automated wallets for testing and automation:
+
+```tsx
+const { autoWallet, isAutomationEnabled } = useAutomation()
+const [accountIdToUse, setAccountIdToUse] = useState<string>(accountId)
+const [signerToUse, setSignerToUse] = useState(signer)
+
+useEffect(() => {
+  if (isAutomationEnabled && autoWallet?.address) {
+    setAccountIdToUse(autoWallet.address)
+    setSignerToUse(autoWallet)
+  } else {
+    setAccountIdToUse(accountId)
+    setSignerToUse(signer)
+  }
+}, [isAutomationEnabled, autoWallet, accountId, signer])
+```
+
+<Warning>
+  Automation wallets should only be used in development and testing environments. Never use automation features with real funds on production networks.
+</Warning>
+
+## Account Avatar
+
+User accounts display unique visual identifiers:
+
+```tsx
+// From: src/components/@shared/atoms/Avatar.tsx
+export default function Avatar({
+  accountId
+}: {
+  accountId: string
+}): ReactElement {
+  // Generate deterministic avatar from address
+  const avatarSrc = generateAvatarUrl(accountId)
+  
+  return (
+    <div className={styles.avatar}>
+      <img
+        src={avatarSrc}
+        alt={`Avatar for ${accountTruncate(accountId)}`}
+        className={styles.image}
+      />
+    </div>
+  )
+}
+
+// Truncate address for display
+export function accountTruncate(account: string): string {
+  if (!account || account.length < 13) return account
+  
+  return `${account.substring(0, 6)}...${account.substring(
+    account.length - 4
+  )}`
+}
+```
+
+## User Profile
+
+Connected users can access their profile page:
+
+```tsx
+<Profile accountId={accountId}>
+  <ProfileHeader address={accountId} />
+  
+  <ProfileTabs>
+    <Tab title="Published Assets">
+      <PublishedList accountId={accountId} />
+    </Tab>
+    
+    <Tab title="Downloads">
+      <Downloads accountId={accountId} />
+    </Tab>
+    
+    <Tab title="Compute Jobs">
+      <ComputeJobs accountId={accountId} />
+    </Tab>
+    
+    <Tab title="Consents">
+      <Consents accountId={accountId} />
+    </Tab>
+  </ProfileTabs>
+</Profile>
+```
+
+### Profile Features
+
+<CardGroup cols={2}>
+  <Card title="Published Assets" icon="upload">
+    View all assets you've published to the marketplace
+  </Card>
+  <Card title="Download History" icon="download">
+    Track datasets and algorithms you've purchased
+  </Card>
+  <Card title="Compute Jobs" icon="server">
+    Monitor running and completed compute-to-data jobs
+  </Card>
+  <Card title="Data Consents" icon="shield-check">
+    Manage GDPR consents for datasets containing PII
+  </Card>
+</CardGroup>
+
+## Purgatory Check
+
+The platform checks if accounts are flagged for policy violations:
+
+```tsx
+const { isInPurgatory, purgatoryData } = useAccountPurgatory(accountId)
+
+if (isInPurgatory && purgatoryData) {
+  return (
+    <Alert
+      state="error"
+      title="Account Restricted"
+      text={`This account has been flagged: ${purgatoryData.reason}`}
+    />
+  )
+}
+```
+
+<Warning>
+  Accounts in purgatory cannot publish assets or perform transactions. Contact support if you believe your account was flagged in error.
+</Warning>
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Use Hardware Wallets">
+    For high-value transactions, use hardware wallets like Ledger or Trezor for maximum security.
+  </Step>
+  
+  <Step title="Verify Transactions">
+    Always review transaction details in your wallet before approving. Check recipient addresses and amounts.
+  </Step>
+  
+  <Step title="Limit Approvals">
+    Approve only the necessary token amount rather than infinite approvals when possible.
+  </Step>
+  
+  <Step title="Keep Private Keys Safe">
+    Never share your private keys or seed phrases. Store them securely offline.
+  </Step>
+  
+  <Step title="Check Network">
+    Verify you're on the correct network before signing transactions to avoid sending funds to the wrong chain.
+  </Step>
+  
+  <Step title="Monitor Activity">
+    Regularly review your profile's transaction history for any unauthorized activity.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Connection Issues
+
+<Tabs>
+  <Tab title="MetaMask Not Detected">
+    **Problem**: "No wallet detected" error
+    
+    **Solutions**:
+    - Install MetaMask browser extension
+    - Refresh the page after installation
+    - Check that MetaMask is unlocked
+    - Try a different browser
+  </Tab>
+  
+  <Tab title="Wrong Network">
+    **Problem**: "Please switch to the correct network"
+    
+    **Solutions**:
+    - Open your wallet
+    - Select the network dropdown
+    - Choose the required network (shown in the error)
+    - Approve the network switch
+  </Tab>
+  
+  <Tab title="Transaction Failed">
+    **Problem**: Transaction rejected or failed
+    
+    **Solutions**:
+    - Ensure sufficient balance for gas fees
+    - Check if token approvals are needed
+    - Increase gas limit if transaction is complex
+    - Wait for network congestion to clear
+    - Try again with a higher gas price
+  </Tab>
+  
+  <Tab title="Balance Not Showing">
+    **Problem**: Wallet shows 0 balance
+    
+    **Solutions**:
+    - Wait for balance to refresh (automatic)
+    - Manually refresh the page
+    - Check you're on the correct network
+    - Verify tokens in wallet directly
+  </Tab>
+</Tabs>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Data Marketplace" icon="store" href="/features/data-marketplace">
+    Use your wallet to purchase and sell data assets
+  </Card>
+  <Card title="Asset Publishing" icon="upload" href="/features/asset-publishing">
+    Connect your wallet to publish assets
+  </Card>
+  <Card title="Compute-to-Data" icon="server" href="/features/compute-to-data">
+    Pay for compute jobs using your wallet
+  </Card>
+  <Card title="Wallet Setup Guide" icon="wallet" href="/guides/wallet-setup">
+    Complete wallet setup and configuration instructions
+  </Card>
+</CardGroup>

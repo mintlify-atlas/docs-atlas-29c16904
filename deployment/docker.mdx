@@ -1,0 +1,341 @@
+---
+title: Docker Deployment
+description: Deploy the AgrospAI Data Space Portal using Docker containers
+---
+
+The portal includes a production-ready Dockerfile that creates an optimized container image using multi-stage builds.
+
+## Quick Start
+
+<Steps>
+  <Step title="Build Docker Image">
+    Build the container image:
+
+    ```bash
+    docker build -t agrospai-portal .
+    ```
+  </Step>
+
+  <Step title="Run Container">
+    Run the container with environment variables:
+
+    ```bash
+    docker run -p 3000:3000 \
+      -e NEXT_PUBLIC_INFURA_PROJECT_ID="your_infura_id" \
+      -e NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="your_wc_id" \
+      -e AGROPORTAL_API_KEY="your_api_key" \
+      agrospai-portal
+    ```
+  </Step>
+
+  <Step title="Access Application">
+    Open your browser to:
+
+    ```
+    http://localhost:3000
+    ```
+  </Step>
+</Steps>
+
+## Dockerfile Architecture
+
+The Dockerfile uses a multi-stage build process for optimal image size and security:
+
+### Stage 1: Dependencies
+
+```dockerfile
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat git
+WORKDIR /app
+
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci --ignore-scripts; \
+  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+```
+
+This stage:
+- Installs only production dependencies
+- Supports multiple package managers (npm, yarn, pnpm)
+- Uses Alpine Linux for minimal size
+- Requires libc6-compat for Node.js native modules
+
+### Stage 2: Builder
+
+```dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN \
+  if [ -f yarn.lock ]; then yarn run build; \
+  elif [ -f package-lock.json ]; then npm run build; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+```
+
+This stage:
+- Copies node_modules from deps stage
+- Builds the Next.js application
+- Disables Next.js telemetry
+- Creates standalone output
+
+### Stage 3: Runner
+
+```dockerfile
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+USER nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]
+```
+
+This stage:
+- Creates a non-root user for security
+- Copies only necessary build artifacts
+- Runs as unprivileged user (nextjs)
+- Exposes port 3000
+- Starts the Next.js server
+
+## Environment Variables
+
+Environment variables can be passed to the container in several ways:
+
+### Using Command Line
+
+```bash
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_INFURA_PROJECT_ID="xxx" \
+  -e NEXT_PUBLIC_METADATACACHE_URI="https://aquarius.pontus-x.eu" \
+  -e AGROPORTAL_API_KEY="xxx" \
+  agrospai-portal
+```
+
+### Using Environment File
+
+Create a `.env.production` file:
+
+```bash .env.production
+NEXT_PUBLIC_INFURA_PROJECT_ID=your_infura_id
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_wc_id
+NEXT_PUBLIC_METADATACACHE_URI=https://aquarius.pontus-x.eu
+AGROPORTAL_API_KEY=your_api_key
+NEXT_TELEMETRY_DISABLED=1
+```
+
+Then run:
+
+```bash
+docker run -p 3000:3000 --env-file .env.production agrospai-portal
+```
+
+## Docker Compose
+
+For more complex deployments, use Docker Compose:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  portal:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_INFURA_PROJECT_ID=${INFURA_PROJECT_ID}
+      - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+      - NEXT_PUBLIC_METADATACACHE_URI=https://aquarius.pontus-x.eu
+      - AGROPORTAL_API_KEY=${AGROPORTAL_API_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+Run with:
+
+```bash
+docker-compose up -d
+```
+
+## Advanced Configuration
+
+### Custom Port Mapping
+
+Map container port 3000 to a different host port:
+
+```bash
+docker run -p 8080:3000 agrospai-portal
+```
+
+Access at `http://localhost:8080`
+
+### Volume Mounting for Logs
+
+Mount a volume for persistent logs:
+
+```bash
+docker run -p 3000:3000 \
+  -v $(pwd)/logs:/app/logs \
+  agrospai-portal
+```
+
+### Resource Limits
+
+Set memory and CPU limits:
+
+```bash
+docker run -p 3000:3000 \
+  --memory="2g" \
+  --cpus="1.5" \
+  agrospai-portal
+```
+
+## Production Best Practices
+
+<Warning>
+Never include sensitive environment variables in the Dockerfile. Always pass them at runtime.
+</Warning>
+
+### Security Hardening
+
+1. **Run as non-root user** - Already configured in Dockerfile
+2. **Use specific image tags** - Pin Node.js version: `node:20-alpine`
+3. **Scan for vulnerabilities**:
+
+```bash
+docker scan agrospai-portal
+```
+
+4. **Use secrets management**:
+
+```bash
+docker run -p 3000:3000 \
+  --secret infura_key \
+  --secret agroportal_key \
+  agrospai-portal
+```
+
+### Multi-Architecture Builds
+
+Build for multiple platforms:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t agrospai-portal:latest .
+```
+
+### Health Checks
+
+Add health check to container:
+
+```bash
+docker run -p 3000:3000 \
+  --health-cmd="wget --quiet --tries=1 --spider http://localhost:3000 || exit 1" \
+  --health-interval=30s \
+  --health-timeout=10s \
+  --health-retries=3 \
+  agrospai-portal
+```
+
+## Container Registry
+
+### Push to Registry
+
+Tag and push to your container registry:
+
+<CodeGroup>
+```bash Docker Hub
+docker tag agrospai-portal your-username/agrospai-portal:latest
+docker push your-username/agrospai-portal:latest
+```
+
+```bash GitHub Container Registry
+docker tag agrospai-portal ghcr.io/your-org/agrospai-portal:latest
+docker push ghcr.io/your-org/agrospai-portal:latest
+```
+
+```bash AWS ECR
+aws ecr get-login-password --region region | docker login --username AWS --password-stdin account-id.dkr.ecr.region.amazonaws.com
+docker tag agrospai-portal account-id.dkr.ecr.region.amazonaws.com/agrospai-portal:latest
+docker push account-id.dkr.ecr.region.amazonaws.com/agrospai-portal:latest
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Container Exits Immediately
+
+Check logs:
+
+```bash
+docker logs agrospai-portal
+```
+
+### Build Fails
+
+Clean Docker build cache:
+
+```bash
+docker builder prune
+docker build --no-cache -t agrospai-portal .
+```
+
+### Port Already in Use
+
+Find and stop conflicting container:
+
+```bash
+docker ps
+docker stop <container-id>
+```
+
+### Environment Variables Not Working
+
+<Note>
+`NEXT_PUBLIC_*` variables must be set at **build time**. Pass them using `--build-arg`:
+</Note>
+
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_INFURA_PROJECT_ID=xxx \
+  -t agrospai-portal .
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Production Build" icon="hammer" href="/deployment/production-build">
+    Learn about the production build process
+  </Card>
+  <Card title="Hosting Options" icon="server" href="/deployment/hosting">
+    Alternative deployment methods
+  </Card>
+</CardGroup>

@@ -1,0 +1,683 @@
+---
+title: 'Asset Discovery'
+description: 'Search, filter, and discover data assets in the AgrospAI Data Space Portal'
+icon: 'magnifying-glass'
+---
+
+The AgrospAI Data Space Portal provides powerful search and discovery capabilities to help you find the perfect datasets, algorithms, and services for your needs. Built on Aquarius metadata indexing and Elasticsearch, the platform offers fast, flexible, and intuitive asset discovery.
+
+## Discovery Features
+
+<CardGroup cols={2}>
+  <Card title="Full-Text Search" icon="text-width">
+    Search across asset names, descriptions, tags, and metadata
+  </Card>
+  <Card title="Advanced Filters" icon="filter">
+    Filter by asset type, price, network, publisher, and more
+  </Card>
+  <Card title="Smart Sorting" icon="arrow-down-wide-short">
+    Sort by relevance, date, price, or popularity
+  </Card>
+  <Card title="Bookmarks" icon="bookmark">
+    Save favorite assets for quick access later
+  </Card>
+</CardGroup>
+
+## Search Component Architecture
+
+The search functionality is built with real-time query updates and optimized performance:
+
+```tsx
+// From: src/components/Search/index.tsx
+export default function SearchPage({
+  setTotalResults,
+  setTotalPagesNumber
+}: {
+  setTotalResults: (totalResults: number) => void
+  setTotalPagesNumber: (totalPagesNumber: number) => void
+}): ReactElement {
+  const router = useRouter()
+  const [parsed, setParsed] = useState<queryString.ParsedQuery<string>>()
+  const { chainIds } = useUserPreferences()
+  const [queryResult, setQueryResult] = useState<PagedAssets>()
+  const [loading, setLoading] = useState<boolean>(true)
+  const newCancelToken = useCancelToken()
+
+  // Parse URL query parameters
+  useEffect(() => {
+    const parsed = queryString.parse(location.search, {
+      arrayFormat: 'separator'
+    })
+    setParsed(parsed)
+  }, [router])
+
+  // Debounced search to avoid excessive API calls
+  const fetchAssets = useDebouncedCallback(
+    async (parsed: queryString.ParsedQuery<string>, chainIds: number[]) => {
+      setLoading(true)
+      setTotalResults(undefined)
+      const queryResult = await getResults(parsed, chainIds, newCancelToken())
+      setQueryResult(queryResult)
+
+      setTotalResults(queryResult?.totalResults || 0)
+      setTotalPagesNumber(queryResult?.totalPages || 0)
+      setLoading(false)
+    },
+    500 // 500ms debounce delay
+  )
+
+  useEffect(() => {
+    if (!parsed || !chainIds) return
+    fetchAssets(parsed, chainIds)
+  }, [parsed, chainIds, fetchAssets])
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.filterContainer}>
+        <Filter addFiltersToUrl expanded />
+        <Sort expanded />
+      </div>
+      <div className={styles.results}>
+        <AssetList
+          assets={queryResult?.results}
+          showPagination
+          isLoading={loading}
+          page={queryResult?.page}
+          totalPages={queryResult?.totalPages}
+          onPageChange={updatePage}
+          showAssetViewSelector
+        />
+      </div>
+    </div>
+  )
+}
+```
+
+<Info>
+  Search queries are debounced by 500ms to optimize performance and reduce server load while maintaining a responsive user experience.
+</Info>
+
+## URL-Based Search State
+
+All search parameters are stored in the URL, enabling:
+
+- **Shareable searches**: Send search URLs to colleagues
+- **Browser history**: Use back/forward buttons to navigate searches
+- **Bookmarkable results**: Save frequently used queries
+
+```typescript
+// URL format:
+// /search?text=agricultural&sort=nft.created&sortOrder=desc&page=1
+
+const updatePage = useCallback(
+  (page: number) => {
+    const { pathname, query } = router
+    const newUrl = updateQueryStringParameter(
+      pathname + '?' + JSON.stringify(query)
+        .replace(/"|{|}/g, '')
+        .replace(/:/g, '=')
+        .replace(/,/g, '&'),
+      'page',
+      `${page}`
+    )
+    return router.push(newUrl)
+  },
+  [router]
+)
+```
+
+## Search Filters
+
+### Filter Component
+
+The Filter component provides granular control over search results:
+
+```tsx
+// From: src/components/Search/Filter.tsx
+<Filter addFiltersToUrl expanded>
+  <FilterSection title="Asset Type">
+    <Checkbox name="dataset" label="Datasets" />
+    <Checkbox name="algorithm" label="Algorithms" />
+    <Checkbox name="saas" label="SaaS Services" />
+  </FilterSection>
+  
+  <FilterSection title="Pricing">
+    <Checkbox name="free" label="Free" />
+    <Checkbox name="fixed" label="Fixed Price" />
+  </FilterSection>
+  
+  <FilterSection title="Network">
+    <Checkbox name="1" label="Ethereum" />
+    <Checkbox name="137" label="Polygon" />
+    <Checkbox name="56" label="BNB Chain" />
+  </FilterSection>
+  
+  <FilterSection title="Access Type">
+    <Checkbox name="access" label="Download" />
+    <Checkbox name="compute" label="Compute" />
+  </FilterSection>
+</Filter>
+```
+
+### Available Filters
+
+<Tabs>
+  <Tab title="Asset Type">
+    Filter by the type of asset:
+    
+    - **Dataset**: Raw data files (CSV, JSON, etc.)
+    - **Algorithm**: Executable code for compute-to-data
+    - **SaaS**: Software services with external access
+  </Tab>
+  
+  <Tab title="Pricing Model">
+    Filter by pricing structure:
+    
+    - **Free**: No payment required
+    - **Fixed**: Set price in specified token
+    - **Dynamic**: Price varies based on conditions
+  </Tab>
+  
+  <Tab title="Blockchain Network">
+    Filter by deployment network:
+    
+    - Ethereum Mainnet (Chain ID: 1)
+    - Polygon (Chain ID: 137)
+    - BNB Smart Chain (Chain ID: 56)
+    - Moonbeam (Chain ID: 1284)
+    - Energy Web Chain (Chain ID: 246)
+  </Tab>
+  
+  <Tab title="Service Type">
+    Filter by access method:
+    
+    - **Access**: Direct download available
+    - **Compute**: Compute-to-Data only (no download)
+  </Tab>
+</Tabs>
+
+## Sorting Options
+
+Customize result ordering based on your priorities:
+
+```tsx
+// From: src/components/Search/sort.tsx
+export const sortOptions = [
+  {
+    value: 'nft.created',
+    label: 'Published Date',
+    direction: 'desc'
+  },
+  {
+    value: 'metadata.name',
+    label: 'Name',
+    direction: 'asc'
+  },
+  {
+    value: 'stats.orders',
+    label: 'Sales',
+    direction: 'desc'
+  },
+  {
+    value: 'accessDetails.price',
+    label: 'Price',
+    direction: 'asc'
+  },
+  {
+    value: '_score',
+    label: 'Relevance',
+    direction: 'desc'
+  }
+]
+
+<Sort expanded>
+  <Select
+    name="sort"
+    options={sortOptions}
+    value={currentSort}
+    onChange={handleSortChange}
+  />
+  
+  <SortOrder
+    value={sortOrder}
+    onChange={toggleSortOrder}
+  />
+</Sort>
+```
+
+<CardGroup cols={3}>
+  <Card title="By Date" icon="calendar">
+    Find newest or oldest assets
+  </Card>
+  <Card title="By Sales" icon="chart-line">
+    Discover popular datasets
+  </Card>
+  <Card title="By Price" icon="dollar-sign">
+    Sort by cost, low to high
+  </Card>
+</CardGroup>
+
+## Homepage Discovery Sections
+
+The homepage showcases curated and trending assets:
+
+```tsx
+// From: src/components/Home/index.tsx
+export default function HomePage(): ReactElement {
+  const { chainIds } = useUserPreferences()
+  const { featured, hasFeaturedAssets } = useAddressConfig()
+
+  const [queryRecent, setQueryRecent] = useState<SearchQuery>()
+  const [queryMostSales, setQueryMostSales] = useState<SearchQuery>()
+
+  useEffect(() => {
+    const baseParams = {
+      chainIds,
+      esPaginationOptions: {
+        size: 4
+      },
+      sortOptions: {
+        sortBy: SortTermOptions.Created
+      } as SortOptions
+    } as BaseQueryParams
+
+    // Query for recently published assets
+    setQueryRecent(generateBaseQuery(baseParams))
+
+    // Query for best-selling assets
+    const baseParamsSales = {
+      ...baseParams,
+      sortOptions: {
+        sortBy: SortTermOptions.Orders
+      }
+    }
+    setQueryMostSales(generateBaseQuery(baseParamsSales))
+  }, [chainIds])
+
+  return (
+    <>
+      {hasFeaturedAssets() && (
+        <>
+          {queryFeatured.map((section, i) => (
+            <SectionQueryResult
+              key={`${section.title}-${i}`}
+              title={section.title}
+              query={section.query}
+            />
+          ))}
+        </>
+      )}
+      <SectionQueryResult title="Recently Published" query={queryRecent} />
+      <SectionQueryResult title="Most Sales" query={queryMostSales} />
+      <AllAssetsButton />
+    </>
+  )
+}
+```
+
+### Featured Assets
+
+Administrators can curate featured asset collections:
+
+```typescript
+// Featured sections configuration
+const featured = [
+  {
+    title: 'Agricultural Data',
+    assets: [
+      'did:op:abc123...',
+      'did:op:def456...',
+      'did:op:ghi789...'
+    ]
+  },
+  {
+    title: 'Climate Models',
+    assets: [
+      'did:op:jkl012...',
+      'did:op:mno345...'
+    ]
+  }
+]
+```
+
+## Asset Preview Cards
+
+Assets are displayed in informative cards showing key details:
+
+```tsx
+<AssetCard asset={asset}>
+  <AssetImage src={asset.metadata.nft?.image} />
+  <AssetTitle>{asset.metadata.name}</AssetTitle>
+  <AssetDescription>{asset.metadata.description}</AssetDescription>
+  
+  <AssetMetadata>
+    <MetaItem icon="tag" label={asset.metadata.type} />
+    <MetaItem icon="network" label={asset.chainId} />
+    <MetaItem icon="clock" label={publishedDate} />
+  </AssetMetadata>
+  
+  <AssetPrice>
+    <Price price={asset.accessDetails?.price} />
+    <PriceToken symbol={asset.accessDetails?.baseToken?.symbol} />
+  </AssetPrice>
+  
+  <AssetStats>
+    <Stat icon="download" value={asset.stats.orders} />
+    <Stat icon="star" value={asset.stats.favorites} />
+  </AssetStats>
+</AssetCard>
+```
+
+## Bookmark Feature
+
+Save assets for quick access later:
+
+```tsx
+// From: src/components/Asset/AssetContent/Bookmark.tsx
+export default function Bookmark({
+  did,
+  defaultChecked
+}: {
+  did: string
+  defaultChecked: boolean
+}): ReactElement {
+  const { addBookmark, removeBookmark, bookmarks } = useBookmarks()
+  const [checked, setChecked] = useState(defaultChecked)
+
+  const handleBookmark = () => {
+    if (checked) {
+      removeBookmark(did)
+      setChecked(false)
+    } else {
+      addBookmark(did)
+      setChecked(true)
+    }
+  }
+
+  return (
+    <button
+      className={styles.button}
+      onClick={handleBookmark}
+      aria-label={checked ? 'Remove bookmark' : 'Add bookmark'}
+    >
+      <BookmarkIcon
+        className={checked ? styles.bookmarked : styles.bookmark}
+      />
+    </button>
+  )
+}
+```
+
+View all bookmarked assets at `/bookmarks`:
+
+```tsx
+<BookmarksPage>
+  <AssetList
+    assets={bookmarkedAssets}
+    emptyMessage="You haven't bookmarked any assets yet"
+  />
+</BookmarksPage>
+```
+
+<Note>
+  Bookmarks are stored locally in your browser. Sign in to sync bookmarks across devices.
+</Note>
+
+## Asset Detail View
+
+Clicking an asset opens its detailed page:
+
+```tsx
+// From: src/components/Asset/index.tsx
+export default function AssetDetails({ uri }: { uri: string }): ReactElement {
+  const { asset, title, error, isInPurgatory, loading } = useAsset()
+  const [pageTitle, setPageTitle] = useState<string>()
+
+  useEffect(() => {
+    if (!asset || error) {
+      setPageTitle(title || 'Could not retrieve asset')
+      return
+    }
+    setPageTitle(isInPurgatory ? '' : title)
+  }, [asset, error, isInPurgatory, title])
+
+  return asset && pageTitle !== undefined && !loading ? (
+    <Page title={pageTitle} uri={uri}>
+      <AssetContent asset={asset} />
+    </Page>
+  ) : error ? (
+    <Page title={pageTitle} noPageHeader uri={uri}>
+      <Alert title={pageTitle} text={error} state={'error'} />
+    </Page>
+  ) : (
+    <Page title={undefined} uri={uri}>
+      <Loader />
+    </Page>
+  )
+}
+```
+
+### Asset Metadata Display
+
+The detail page shows comprehensive asset information:
+
+```tsx
+<AssetContent asset={asset}>
+  {/* Main metadata */}
+  <MetaMain>
+    <MetaAsset
+      title={asset.metadata.name}
+      description={asset.metadata.description}
+      publisher={asset.nft.owner}
+      created={asset.nft.created}
+      tags={asset.metadata.tags}
+    />
+    
+    <MetaInfo
+      license={asset.metadata.license}
+      type={asset.metadata.type}
+      algorithm={asset.metadata.algorithm}
+    />
+  </MetaMain>
+  
+  {/* Secondary metadata */}
+  <MetaSecondary>
+    <MetaItem label="Network" value={getNetworkName(asset.chainId)} />
+    <MetaItem label="Datatoken" value={asset.datatokens[0].address} />
+    <MetaItem label="NFT Address" value={asset.nft.address} />
+    <MetaItem label="DID" value={asset.id} />
+  </MetaSecondary>
+  
+  {/* File information */}
+  <FileInfo
+    file={asset.services[0].files}
+    isLoading={fileIsLoading}
+  />
+  
+  {/* Actions (download, compute) */}
+  <AssetActions
+    asset={asset}
+    accountId={accountId}
+    signer={signer}
+  />
+  
+  {/* Edit history */}
+  <EditHistory transactions={asset.nft.eventHistory} />
+  
+  {/* Related assets */}
+  <RelatedAssets did={asset.id} />
+</AssetContent>
+```
+
+## Related Assets
+
+Discover similar assets based on tags and publisher:
+
+```tsx
+// From: src/components/Asset/RelatedAssets/index.tsx
+export default function RelatedAssets({
+  did
+}: {
+  did: string
+}): ReactElement {
+  const { asset } = useAsset()
+  const [relatedAssets, setRelatedAssets] = useState<Asset[]>()
+  const { chainIds } = useUserPreferences()
+
+  useEffect(() => {
+    if (!asset || !chainIds) return
+
+    async function getRelated() {
+      // Query assets with matching tags
+      const tagQuery = generateBaseQuery({
+        chainIds,
+        filters: [
+          getFilterTerm('metadata.tags.keyword', asset.metadata.tags)
+        ],
+        esPaginationOptions: { size: 4 }
+      })
+      
+      const results = await queryMetadata(tagQuery)
+      
+      // Exclude current asset
+      const filtered = results.filter(a => a.id !== did)
+      
+      setRelatedAssets(filtered)
+    }
+
+    getRelated()
+  }, [asset, chainIds, did])
+
+  return relatedAssets?.length > 0 ? (
+    <section className={styles.related}>
+      <h3>Related Assets</h3>
+      <AssetList assets={relatedAssets} />
+    </section>
+  ) : null
+}
+```
+
+## Search Best Practices
+
+<Steps>
+  <Step title="Use Descriptive Keywords">
+    Search terms are matched against names, descriptions, and tags. Use specific agricultural or data science terminology.
+  </Step>
+  
+  <Step title="Combine Filters">
+    Use multiple filters together to narrow results. For example, filter by "Dataset" + "Free" + "Polygon" to find free datasets on Polygon.
+  </Step>
+  
+  <Step title="Check Asset Details">
+    Review the full asset page before purchasing. Check file samples, publisher history, and edit logs.
+  </Step>
+  
+  <Step title="Bookmark for Later">
+    Save interesting assets to your bookmarks to compare options before making a decision.
+  </Step>
+  
+  <Step title="Review Publisher">
+    Click on publisher addresses to see all their published assets and transaction history.
+  </Step>
+</Steps>
+
+## Advanced Query Syntax
+
+Power users can construct complex queries:
+
+```typescript
+// Query structure
+interface SearchQuery {
+  query: {
+    bool: {
+      must: Array<any>     // Required matches
+      should: Array<any>   // Optional matches (boost relevance)
+      filter: Array<any>   // Filter results (no scoring)
+      must_not: Array<any> // Exclude matches
+    }
+  }
+  sort: Array<any>
+  from: number  // Pagination offset
+  size: number  // Results per page
+}
+
+// Example: Find free datasets on Polygon with "agriculture" tag
+const query = {
+  query: {
+    bool: {
+      must: [
+        { match: { 'metadata.type': 'dataset' } }
+      ],
+      filter: [
+        { term: { chainId: 137 } },
+        { term: { 'accessDetails.type': 'free' } },
+        { term: { 'metadata.tags.keyword': 'agriculture' } }
+      ]
+    }
+  },
+  sort: [{ 'nft.created': 'desc' }],
+  from: 0,
+  size: 20
+}
+```
+
+<Warning>
+  Direct Elasticsearch queries require advanced knowledge. Use the UI filters for most use cases to ensure valid query syntax.
+</Warning>
+
+## Performance Optimization
+
+### Pagination
+
+Results are paginated to maintain fast load times:
+
+```tsx
+<AssetList
+  assets={queryResult?.results}
+  showPagination
+  page={queryResult?.page}
+  totalPages={queryResult?.totalPages}
+  onPageChange={(page) => updatePage(page)}
+/>
+```
+
+### Caching Strategy
+
+Asset metadata is cached by Aquarius to reduce blockchain queries:
+
+- **TTL**: 60 seconds for most queries
+- **Invalidation**: Automatic on asset updates
+- **Refresh**: Manual refresh available on asset pages
+
+### Cancel Tokens
+
+Pending requests are cancelled when new searches start:
+
+```typescript
+const newCancelToken = useCancelToken()
+
+const fetchAssets = async () => {
+  const queryResult = await getResults(
+    parsed,
+    chainIds,
+    newCancelToken() // Cancels previous request
+  )
+}
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Data Marketplace" icon="store" href="/features/data-marketplace">
+    Learn about the marketplace ecosystem and purchasing
+  </Card>
+  <Card title="Asset Publishing" icon="upload" href="/features/asset-publishing">
+    Publish your own discoverable assets
+  </Card>
+  <Card title="Wallet Integration" icon="wallet" href="/features/wallet-integration">
+    Connect your wallet to interact with assets
+  </Card>
+  <Card title="Compute-to-Data" icon="server" href="/features/compute-to-data">
+    Run algorithms on discovered datasets
+  </Card>
+</CardGroup>

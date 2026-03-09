@@ -1,0 +1,345 @@
+---
+title: Local Development Setup
+description: Set up your local development environment for the AgrospAI Data Space Portal
+---
+
+This guide will help you set up your local development environment for the AgrospAI Data Space Portal. The application is a React-based Next.js app built with TypeScript and CSS modules.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** (required) - Version 20.x (check the `.nvmrc` file)
+- **nvm** (recommended) - For managing Node.js versions
+- **Git** - Required for cloning the repository
+
+<Info>
+The project uses Node.js version 20. Using [nvm](https://github.com/nvm-sh/nvm) is the recommended way to manage Node.js versions.
+</Info>
+
+## Initial Setup
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the repository and navigate to the project directory:
+
+    ```bash
+    git clone git@github.com:oceanprotocol/market.git
+    cd market
+    ```
+  </Step>
+
+  <Step title="Use Correct Node.js Version">
+    If you're using nvm to manage Node.js versions:
+
+    ```bash
+    nvm use
+    ```
+
+    This will automatically switch to Node.js version 20 as specified in `.nvmrc`.
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install the project dependencies using npm or yarn:
+
+    <CodeGroup>
+      ```bash npm
+      npm install
+      ```
+
+      ```bash npm (legacy)
+      # In case of dependency errors, use:
+      npm install --legacy-peer-deps
+      ```
+
+      ```bash yarn
+      yarn install
+      ```
+    </CodeGroup>
+
+    <Warning>
+    If you encounter dependency conflicts, use the `--legacy-peer-deps` flag with npm.
+    </Warning>
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Copy the example environment file and configure it:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` to add your configuration. Key variables include:
+
+    ```bash .env
+    # Required API Keys
+    NEXT_PUBLIC_INFURA_PROJECT_ID="your_infura_project_id"
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="your_walletconnect_project_id"
+    
+    # Market Fee Configuration
+    NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x..."
+    NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="1"
+    NEXT_PUBLIC_PUBLISHER_MARKET_FIXED_SWAP_FEE="1"
+    NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="1"
+    NEXT_PUBLIC_CONSUME_MARKET_FIXED_SWAP_FEE="1"
+    
+    # Pricing Options
+    NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+    NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+    
+    # AgroPortal Integration
+    AGROPORTAL_API_KEY="your_agroportal_api_key_here"
+    ```
+
+    <Tip>
+    The `.env.example` file contains all available configuration options. Review it to understand what can be customized.
+    </Tip>
+  </Step>
+
+  <Step title="Start Development Server">
+    Start the development server:
+
+    <CodeGroup>
+      ```bash npm
+      npm start
+      ```
+
+      ```bash yarn
+      yarn start
+      ```
+    </CodeGroup>
+
+    The application will be available at `http://localhost:8000`.
+  </Step>
+</Steps>
+
+## Available Scripts
+
+The project includes several npm scripts for development:
+
+| Command | Description |
+|---------|-------------|
+| `npm start` | Starts the development server on port 8000 |
+| `npm run build` | Creates a production build |
+| `npm run build:static` | Creates a static export |
+| `npm run serve` | Serves the production build |
+| `npm test` | Runs linting, type checking, and tests |
+| `npm run lint` | Runs ESLint checks |
+| `npm run lint:fix` | Fixes ESLint issues automatically |
+| `npm run format` | Formats code with Prettier |
+| `npm run type-check` | Runs TypeScript type checking |
+| `npm run set-barge-env` | Sets up environment for local Barge |
+
+## Development Workflow
+
+### Code Style
+
+The project enforces code style through ESLint and Prettier:
+
+- **Git pre-commit hook** - Runs Prettier on staged files (configured with Husky)
+- **VS Code integration** - Recommended extensions for auto-formatting on save
+- **CI checks** - Linting and type checking runs on all commits
+
+<CodeGroup>
+  ```bash Linting
+  npm run lint
+  ```
+
+  ```bash Auto-format
+  npm run format
+  ```
+
+  ```bash Type Check
+  npm run type-check
+  ```
+</CodeGroup>
+
+### Hot Reloading
+
+The development server supports hot module replacement (HMR). Changes to your code will automatically refresh the browser.
+
+### TypeScript Configuration
+
+The project uses TypeScript with path aliases configured:
+
+```typescript
+import Component from '@components/MyComponent'
+import { useCustomHook } from '@hooks/useCustomHook'
+import { utility } from '@utils/helper'
+import Asset from '@context/Asset'
+import Logo from '@images/logo.svg'
+```
+
+## Building for Production
+
+<Steps>
+  <Step title="Create Production Build">
+    ```bash
+    npm run build
+    ```
+
+    This generates an optimized production build in the `.next` directory.
+  </Step>
+
+  <Step title="Test Production Build Locally">
+    ```bash
+    npm run serve
+    ```
+
+    The production build will be served locally for testing.
+  </Step>
+
+  <Step title="Create Static Export (Optional)">
+    ```bash
+    npm run build:static
+    ```
+
+    This creates a static HTML export in the `public/` directory.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Dependency Installation Issues
+
+<AccordionGroup>
+  <Accordion title="Peer dependency conflicts">
+    If you encounter peer dependency warnings or errors:
+
+    ```bash
+    npm install --legacy-peer-deps
+    ```
+
+    This bypasses peer dependency conflict checks.
+  </Accordion>
+
+  <Accordion title="Node version mismatch">
+    Ensure you're using the correct Node.js version:
+
+    ```bash
+    # Check current version
+    node --version
+
+    # Should output: v20.x.x
+    # If not, use nvm
+    nvm install 20
+    nvm use 20
+    ```
+  </Accordion>
+
+  <Accordion title="Clean installation">
+    If dependencies are corrupted, perform a clean install:
+
+    ```bash
+    # Remove existing dependencies
+    rm -rf node_modules package-lock.json
+
+    # Reinstall
+    npm install --legacy-peer-deps
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Build Issues
+
+<AccordionGroup>
+  <Accordion title="TypeScript errors during build">
+    Check for type errors without building:
+
+    ```bash
+    npm run type-check
+    ```
+
+    Fix any reported type errors before attempting to build.
+  </Accordion>
+
+  <Accordion title="Environment variable not found">
+    Ensure your `.env` file exists and contains all required variables:
+
+    ```bash
+    # Check if .env exists
+    ls -la .env
+
+    # If not, copy from example
+    cp .env.example .env
+    ```
+
+    Restart the development server after modifying `.env`.
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    If port 8000 is already in use:
+
+    ```bash
+    # Find process using port 8000
+    lsof -i :8000
+
+    # Kill the process or use a different port
+    next dev -p 8001
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Runtime Errors
+
+<AccordionGroup>
+  <Accordion title="Module not found errors">
+    Clear Next.js cache and rebuild:
+
+    ```bash
+    rm -rf .next
+    npm start
+    ```
+  </Accordion>
+
+  <Accordion title="API connection failures">
+    Verify your environment variables for API endpoints:
+
+    - Check `NEXT_PUBLIC_METADATACACHE_URI`
+    - Check `NEXT_PUBLIC_SUBGRAPH_URI`
+    - Check `NEXT_PUBLIC_PROVIDER_URL`
+
+    Ensure the services are accessible from your development environment.
+  </Accordion>
+</AccordionGroup>
+
+## Editor Setup
+
+### VS Code (Recommended)
+
+The project includes recommended VS Code extensions. Install them for the best development experience:
+
+1. ESLint
+2. Prettier - Code formatter
+3. TypeScript Vue Plugin (Volar)
+
+### Settings
+
+Add these settings to your VS Code workspace for auto-formatting:
+
+```json .vscode/settings.json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Barge Integration" icon="docker" href="/development/barge-integration">
+    Set up local Ocean Protocol components with Barge
+  </Card>
+  <Card title="Testing Guide" icon="flask" href="/development/testing">
+    Learn how to write and run tests
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system architecture
+  </Card>
+  <Card title="Data Sources" icon="database" href="/reference/data-sources">
+    Explore data sources and APIs
+  </Card>
+</CardGroup>

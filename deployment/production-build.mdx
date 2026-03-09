@@ -1,0 +1,212 @@
+---
+title: Production Build
+description: Build the AgrospAI Data Space Portal for production deployment
+---
+
+The AgrospAI Data Space Portal uses Next.js with a standalone output configuration for optimized production builds.
+
+## Build Process
+
+The production build process includes several automated steps:
+
+<Steps>
+  <Step title="Install Dependencies">
+    Install all required packages using npm:
+
+    ```bash
+    npm install
+    ```
+
+    If you encounter dependency conflicts, use the legacy peer deps flag:
+
+    ```bash
+    npm install --legacy-peer-deps
+    ```
+  </Step>
+
+  <Step title="Run Pre-Generation Scripts">
+    The build automatically runs pre-generation scripts that:
+    - Copy contract addresses from configuration
+    - Generate required build-time assets
+
+    This happens automatically during the build, but you can run it manually:
+
+    ```bash
+    npm run pregenerate
+    ```
+  </Step>
+
+  <Step title="Build for Production">
+    Create an optimized production build:
+
+    ```bash
+    npm run build
+    ```
+
+    This command:
+    - Runs `postinstall` hooks (Husky and address copying)
+    - Executes pre-generation scripts
+    - Builds Next.js with standalone output mode
+    - Generates `.next/standalone` directory with minimal dependencies
+  </Step>
+
+  <Step title="Test Production Build">
+    Serve the production build locally to verify:
+
+    ```bash
+    npm run serve
+    ```
+
+    The application will be available at `http://localhost:3000`
+  </Step>
+</Steps>
+
+## Build Configuration
+
+The production build is configured in `next.config.js` with the following key settings:
+
+### Standalone Output
+
+```javascript next.config.js
+module.exports = {
+  output: 'standalone',
+  // ... other config
+}
+```
+
+This creates a minimal production deployment that includes only the necessary files and dependencies.
+
+### Environment Variables
+
+Environment variables must be set at build time for Next.js public variables.
+
+<Warning>
+All `NEXT_PUBLIC_*` environment variables must be set **before** running `npm run build`. They are embedded into the JavaScript bundle at build time.
+</Warning>
+
+## Build Artifacts
+
+After a successful build, you'll have:
+
+- `.next/standalone/` - Minimal server with dependencies
+- `.next/static/` - Static assets (CSS, JS, images)
+- `public/` - Public static files
+
+## Build Scripts
+
+The following npm scripts are available:
+
+<CodeGroup>
+```bash Standard Build
+npm run build
+```
+
+```bash Static Export
+npm run build:static
+```
+
+```bash Development
+npm start
+```
+</CodeGroup>
+
+### Static Export
+
+For fully static deployment without a Node.js server:
+
+```bash
+npm run build:static
+```
+
+This creates a `public/` directory with exported static HTML files. Note that some dynamic features may not work in static export mode.
+
+## Environment Requirements
+
+<Note>
+The application requires Node.js version 22 as specified in `package.json`.
+</Note>
+
+### Required Environment Variables
+
+Set these before building:
+
+```bash .env
+# Required for Web3 functionality
+NEXT_PUBLIC_INFURA_PROJECT_ID="your_infura_id"
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="your_walletconnect_id"
+
+# Market configuration
+NEXT_PUBLIC_MARKET_FEE_ADDRESS="0x..."
+NEXT_PUBLIC_PUBLISHER_MARKET_ORDER_FEE="1"
+NEXT_PUBLIC_CONSUME_MARKET_ORDER_FEE="1"
+
+# Ocean Protocol endpoints
+NEXT_PUBLIC_METADATACACHE_URI="https://aquarius.pontus-x.eu"
+NEXT_PUBLIC_PROVIDER_URL="http://..."
+
+# AgroPortal API
+AGROPORTAL_API_KEY="your_api_key"
+
+# Disable Next.js telemetry
+NEXT_TELEMETRY_DISABLED=1
+```
+
+### Optional Configuration
+
+```bash .env
+# Pricing options
+NEXT_PUBLIC_ALLOW_FIXED_PRICING="true"
+NEXT_PUBLIC_ALLOW_FREE_PRICING="true"
+
+# Privacy preference center
+NEXT_PUBLIC_PRIVACY_PREFERENCE_CENTER="false"
+
+# Development mode
+NEXT_PUBLIC_MARKET_DEVELOPMENT="false"
+```
+
+## Build Optimization
+
+The Next.js configuration includes several optimizations:
+
+- **Output file tracing** - Automatically determines minimal dependencies
+- **SVG optimization** - SVGs are processed with SVGR for React components
+- **Webpack 5** - Modern bundling with improved tree-shaking
+- **Standalone mode** - Self-contained server with minimal footprint
+
+## Troubleshooting
+
+### Build Fails with Module Errors
+
+If you see module resolution errors:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+### Missing Environment Variables
+
+If the build completes but the app doesn't work:
+
+1. Check that all `NEXT_PUBLIC_*` variables are set
+2. Rebuild after adding variables
+3. Verify variables are not empty strings
+
+### Out of Memory Errors
+
+For large builds, increase Node.js memory:
+
+```bash
+NODE_OPTIONS="--max-old-space-size=4096" npm run build
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy using containerization
+  </Card>
+  <Card title="Hosting Options" icon="server" href="/deployment/hosting">
+    Deploy to Netlify, Vercel, or S3
+  </Card>
+</CardGroup>

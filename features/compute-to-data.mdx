@@ -1,0 +1,574 @@
+---
+title: 'Compute-to-Data'
+description: 'Run algorithms on private datasets without downloading or exposing the underlying data'
+icon: 'server'
+---
+
+Compute-to-Data (C2D) is a revolutionary feature that enables algorithms to be executed on datasets without the data ever leaving the owner's infrastructure. This preserves data privacy while enabling valuable analytics and AI/ML operations.
+
+## Overview
+
+<Info>
+  Compute-to-Data solves the data privacy paradox: how to gain insights from sensitive data without exposing it.
+</Info>
+
+With C2D, you can:
+
+- Run algorithms on datasets without downloading them
+- Maintain complete data privacy and control
+- Comply with data protection regulations (GDPR, HIPAA, etc.)
+- Monetize sensitive data safely
+- Execute AI/ML workloads on distributed data
+
+<CardGroup cols={2}>
+  <Card title="For Data Owners" icon="lock">
+    Keep your data private while enabling others to run analytics and gain insights
+  </Card>
+  <Card title="For Algorithm Developers" icon="code">
+    Access valuable datasets without needing to download or store sensitive information
+  </Card>
+</CardGroup>
+
+## How Compute-to-Data Works
+
+<Steps>
+  <Step title="Select Dataset and Algorithm">
+    Choose a dataset that supports compute and an algorithm to run against it.
+  </Step>
+  
+  <Step title="Configure Compute Environment">
+    Select compute resources and environment specifications for job execution.
+  </Step>
+  
+  <Step title="Order and Pay">
+    Purchase access to both the dataset and algorithm (if required).
+  </Step>
+  
+  <Step title="Job Execution">
+    The algorithm runs in an isolated container with access only to the specified dataset.
+  </Step>
+  
+  <Step title="Retrieve Results">
+    Download the algorithm output and logs after job completion.
+  </Step>
+</Steps>
+
+## Starting a Compute Job
+
+### Component Architecture
+
+The Compute component handles the entire C2D workflow:
+
+```tsx
+// From: src/components/Asset/AssetActions/Compute/index.tsx
+export default function Compute({
+  accountId,
+  signer,
+  asset,
+  dtBalance,
+  file,
+  isAccountIdWhitelisted
+}: {
+  accountId: string
+  signer: Signer
+  asset: AssetExtended
+  dtBalance: string
+  file: FileInfo
+  isAccountIdWhitelisted: boolean
+}): ReactElement {
+  const [selectedAlgorithmAsset, setSelectedAlgorithmAsset] =
+    useState<AssetExtended>()
+  const [selectedComputeEnv, setSelectedComputeEnv] =
+    useState<ComputeEnvironment>()
+  const [jobs, setJobs] = useState<ComputeJobMetaData[]>([])
+  const [isOrdering, setIsOrdering] = useState(false)
+  const [isOrdered, setIsOrdered] = useState(false)
+
+  // Initialize compute environments
+  const initializeComputeEnvironment = useCallback(async () => {
+    const computeEnvs = await getComputeEnvironments(
+      asset.services[0].serviceEndpoint,
+      asset.chainId
+    )
+    setComputeEnvs(computeEnvs || [])
+  }, [asset])
+
+  useEffect(() => {
+    initializeComputeEnvironment()
+  }, [initializeComputeEnvironment])
+
+  return (
+    <Formik
+      initialValues={getInitialValues(
+        asset,
+        selectedAlgorithmAsset,
+        selectedComputeEnv,
+        false,
+        false
+      )}
+      validationSchema={getComputeValidationSchema(
+        asset.services[0].consumerParameters,
+        selectedAlgorithmAsset?.services[0].consumerParameters,
+        selectedAlgorithmAsset?.metadata?.algorithm?.consumerParameters
+      )}
+      onSubmit={onSubmit}
+    >
+      <FormStartComputeDataset
+        algorithms={algorithmList}
+        selectedAlgorithmAsset={selectedAlgorithmAsset}
+        setSelectedAlgorithm={setSelectedAlgorithmAsset}
+        isLoading={isOrdering}
+        computeEnvs={computeEnvs}
+        setSelectedComputeEnv={setSelectedComputeEnv}
+      />
+    </Formik>
+  )
+}
+```
+
+### Initialize Provider for Compute
+
+Before starting a job, the provider must be initialized to verify permissions and calculate costs:
+
+```typescript
+// From: src/@utils/provider.ts
+export async function initializeProviderForCompute(
+  dataset: AssetExtended,
+  algorithm: AssetExtended,
+  accountId: string,
+  computeEnv: ComputeEnvironment = null
+): Promise<ProviderComputeInitializeResults> {
+  const computeAsset: ComputeAsset = {
+    documentId: dataset.id,
+    serviceId: dataset.services[0].id,
+    transferTxId: dataset.accessDetails.validOrderTx
+  }
+  
+  const computeAlgo: ComputeAlgorithm = {
+    documentId: algorithm.id,
+    serviceId: algorithm.services[0].id,
+    transferTxId: algorithm.accessDetails.validOrderTx
+  }
+
+  const validUntil = getValidUntilTime(
+    computeEnv?.maxJobDuration,
+    dataset.services[0].timeout,
+    algorithm.services[0].timeout
+  )
+
+  try {
+    return await ProviderInstance.initializeCompute(
+      [computeAsset],
+      computeAlgo,
+      computeEnv?.id,
+      validUntil,
+      customProviderUrl || dataset.services[0].serviceEndpoint,
+      accountId
+    )
+  } catch (error) {
+    LoggerInstance.error('[Initialize Provider] Error:', error.message)
+    return null
+  }
+}
+```
+
+<Note>
+  The `validUntil` parameter ensures compute jobs respect timeout limits set by both the dataset and algorithm publishers.
+</Note>
+
+### Price and Fee Calculation
+
+C2D jobs involve multiple fee components:
+
+```tsx
+// From: src/components/Asset/AssetActions/Compute/index.tsx
+async function initPriceAndFees() {
+  try {
+    if (!selectedComputeEnv || !selectedComputeEnv.id)
+      throw new Error(`Error getting compute environment!`)
+
+    const initializedProvider = await initializeProviderForCompute(
+      asset,
+      selectedAlgorithmAsset,
+      accountId || ZERO_ADDRESS,
+      selectedComputeEnv
+    )
+
+    if (
+      !initializedProvider ||
+      !initializedProvider?.datasets ||
+      !initializedProvider?.algorithm
+    )
+      throw new Error(`Error initializing provider for the compute job!`)
+
+    // Set dataset price
+    await setDatasetPrice(initializedProvider?.datasets?.[0]?.providerFee)
+    
+    // Set algorithm price
+    await setAlgoPrice(initializedProvider?.algorithm?.providerFee)
+    
+    // Set compute fees
+    const sanitizedResponse = await setComputeFees(initializedProvider)
+    setInitializedProviderResponse(sanitizedResponse)
+  } catch (error) {
+    setError(error.message)
+    LoggerInstance.error(`[compute] ${error.message}`)
+  }
+}
+```
+
+<Tabs>
+  <Tab title="Dataset Fee">
+    Payment to access and use the dataset for computation.
+  </Tab>
+  
+  <Tab title="Algorithm Fee">
+    Payment to use the algorithm (if not owned).
+  </Tab>
+  
+  <Tab title="Provider Fee">
+    Infrastructure and execution costs charged by the compute provider.
+  </Tab>
+  
+  <Tab title="Market Fee">
+    Platform fee for marketplace services.
+  </Tab>
+</Tabs>
+
+### Starting the Compute Job
+
+Once prices are confirmed and orders placed, the compute job can start:
+
+```tsx
+// From: src/components/Asset/AssetActions/Compute/index.tsx
+async function startJob(userCustomParameters: {
+  dataServiceParams?: UserCustomParameters
+  algoServiceParams?: UserCustomParameters
+  algoParams?: UserCustomParameters
+}): Promise<void> {
+  try {
+    setIsOrdering(true)
+    setIsOrdered(false)
+    setError(undefined)
+    
+    const computeService = getServiceByName(asset, 'compute')
+    const computeAlgorithm: ComputeAlgorithm = {
+      documentId: selectedAlgorithmAsset.id,
+      serviceId: selectedAlgorithmAsset.services[0].id,
+      algocustomdata: userCustomParameters?.algoParams,
+      userdata: userCustomParameters?.algoServiceParams
+    }
+
+    // Verify dataset is orderable with this algorithm
+    const allowed = await isOrderable(
+      asset,
+      computeService.id,
+      computeAlgorithm,
+      selectedAlgorithmAsset
+    )
+    if (!allowed)
+      throw new Error(
+        'Dataset is not orderable in combination with selected algorithm.'
+      )
+
+    // Order algorithm
+    const algorithmOrderTx = await handleComputeOrder(
+      signer,
+      selectedAlgorithmAsset,
+      algoOrderPriceAndFees,
+      accountId,
+      initializedProviderResponse.algorithm,
+      hasAlgoAssetDatatoken,
+      selectedComputeEnv.consumerAddress
+    )
+    if (!algorithmOrderTx) throw new Error('Failed to order algorithm.')
+
+    // Order dataset
+    const datasetOrderTx = await handleComputeOrder(
+      signer,
+      asset,
+      datasetOrderPriceAndFees,
+      accountId,
+      initializedProviderResponse.datasets[0],
+      hasDatatoken,
+      selectedComputeEnv.consumerAddress
+    )
+    if (!datasetOrderTx) throw new Error('Failed to order dataset.')
+
+    // Start compute job
+    const computeAsset: ComputeAsset = {
+      documentId: asset.id,
+      serviceId: asset.services[0].id,
+      transferTxId: datasetOrderTx,
+      userdata: userCustomParameters?.dataServiceParams
+    }
+    
+    computeAlgorithm.transferTxId = algorithmOrderTx
+    
+    const output: ComputeOutput = {
+      publishAlgorithmLog: true,
+      publishOutput: true
+    }
+    
+    const response = await ProviderInstance.computeStart(
+      asset.services[0].serviceEndpoint,
+      signer,
+      selectedComputeEnv?.id,
+      computeAsset,
+      computeAlgorithm,
+      newAbortController(),
+      null,
+      output
+    )
+    
+    if (!response) throw new Error('Error starting compute job.')
+
+    setIsOrdered(true)
+    setRefetchJobs(!refetchJobs)
+  } catch (error) {
+    LoggerInstance.error('[Compute] Error:', error.message)
+    setError(error.message)
+  } finally {
+    setIsOrdering(false)
+  }
+}
+```
+
+<Warning>
+  Always verify that the algorithm is allowed to run on the selected dataset. Publishers can restrict which algorithms can access their data.
+</Warning>
+
+## Monitoring Compute Jobs
+
+Track your running and completed compute jobs:
+
+```tsx
+// From: src/components/Asset/AssetActions/Compute/index.tsx
+const fetchJobs = useCallback(
+  async (type: string) => {
+    if (!chainIds || chainIds.length === 0 || !accountId) {
+      return
+    }
+
+    try {
+      type === 'init' && setIsLoadingJobs(true)
+      const computeJobs = await getComputeJobs(
+        [asset?.chainId] || chainIds,
+        address,
+        asset,
+        newCancelToken()
+      )
+      setJobs(computeJobs.computeJobs)
+      setIsLoadingJobs(!computeJobs.isLoaded)
+    } catch (error) {
+      LoggerInstance.error(error.message)
+      setIsLoadingJobs(false)
+    }
+  },
+  [address, accountId, asset, chainIds]
+)
+
+useEffect(() => {
+  fetchJobs('init')
+
+  // Periodic refresh for jobs every 10 seconds
+  const balanceInterval = setInterval(
+    () => fetchJobs('repeat'),
+    10000
+  )
+
+  return () => {
+    clearInterval(balanceInterval)
+  }
+}, [refetchJobs])
+```
+
+### Job Status Display
+
+```tsx
+<ComputeHistory
+  title="Your Compute Jobs"
+  refetchJobs={() => setRefetchJobs(!refetchJobs)}
+>
+  <ComputeJobs
+    minimal
+    jobs={jobs}
+    isLoading={isLoadingJobs}
+    refetchJobs={() => setRefetchJobs(!refetchJobs)}
+  />
+</ComputeHistory>
+```
+
+<Info>
+  Jobs are automatically refreshed every 10 seconds to show real-time progress updates.
+</Info>
+
+## Algorithm Publishing for C2D
+
+When publishing algorithms for compute-to-data, you can configure privacy settings:
+
+```tsx
+// From: src/components/Publish/Metadata/index.tsx
+{values.metadata.type === 'algorithm' && (
+  <>
+    <Field
+      {...getFieldContent('dockerImage', content.metadata.fields)}
+      component={Input}
+      name="metadata.dockerImage"
+      options={dockerImageOptions}
+    />
+    
+    {values.metadata.dockerImage === 'custom' && (
+      <>
+        <Field
+          {...getFieldContent('dockerImageCustom', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustom"
+        />
+        <Field
+          {...getFieldContent('dockerImageChecksum', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustomChecksum"
+        />
+        <Field
+          {...getFieldContent('dockerImageCustomEntrypoint', content.metadata.fields)}
+          component={Input}
+          name="metadata.dockerImageCustomEntrypoint"
+        />
+      </>
+    )}
+  </>
+)}
+```
+
+### Algorithm Privacy
+
+Algorithms can be set to private mode, preventing downloads while allowing execution:
+
+```tsx
+{asset.services[0].type === 'compute' && (
+  <Alert
+    text={
+      "This algorithm has been set to private by the publisher and can't be downloaded. You can run it against any allowed datasets though!"
+    }
+    state="info"
+  />
+)}
+```
+
+## Consumer Parameters
+
+Both datasets and algorithms can accept custom parameters at runtime:
+
+```tsx
+// Parse and pass consumer parameters to compute job
+const userCustomParameters = {
+  dataServiceParams: parseConsumerParameterValues(
+    values?.dataServiceParams,
+    asset.services[0].consumerParameters
+  ),
+  algoServiceParams: parseConsumerParameterValues(
+    values?.algoServiceParams,
+    selectedAlgorithmAsset?.services[0].consumerParameters
+  ),
+  algoParams: parseConsumerParameterValues(
+    values?.algoParams,
+    selectedAlgorithmAsset?.metadata?.algorithm?.consumerParameters
+  )
+}
+
+await startJob(userCustomParameters)
+```
+
+<Note>
+  Consumer parameters enable dynamic algorithm behavior without modifying the algorithm code.
+</Note>
+
+## Whitelist Access Control
+
+Datasets can restrict access to specific wallet addresses:
+
+```tsx
+// From: src/components/Asset/AssetActions/Compute/WhitelistIndicator.tsx
+{accountId && (
+  <WhitelistIndicator
+    accountId={accountId}
+    isAccountIdWhitelisted={isAccountIdWhitelisted}
+  />
+)}
+```
+
+<Warning>
+  If a dataset has a whitelist enabled, only approved addresses can start compute jobs. Contact the dataset publisher to request access.
+</Warning>
+
+## Compute Environments
+
+Compute environments define the resources and specifications for job execution:
+
+```typescript
+interface ComputeEnvironment {
+  id: string
+  desc: string
+  consumerAddress: string
+  cpuNumber: number
+  cpuType: string
+  gpuNumber: number
+  gpuType: string
+  ramGB: number
+  diskGB: number
+  maxJobDuration: number
+  priceMin: number
+}
+```
+
+Users select the appropriate environment based on their algorithm's requirements:
+
+```tsx
+<FormStartComputeDataset
+  computeEnvs={computeEnvs}
+  setSelectedComputeEnv={setSelectedComputeEnv}
+  // ... other props
+/>
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Verify Compatibility">
+    Ensure your algorithm is compatible with the dataset's compute environment and restrictions.
+  </Step>
+  
+  <Step title="Test with Free Datasets">
+    Start with free or test datasets to validate your algorithm before running on paid datasets.
+  </Step>
+  
+  <Step title="Monitor Job Progress">
+    Regularly check job status and logs to catch errors early.
+  </Step>
+  
+  <Step title="Optimize Resource Usage">
+    Choose the minimum compute environment that meets your needs to reduce costs.
+  </Step>
+  
+  <Step title="Handle Timeouts">
+    Design algorithms to complete within the dataset's timeout limits.
+  </Step>
+</Steps>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Asset Publishing" icon="upload" href="/features/asset-publishing">
+    Learn how to publish datasets with compute support
+  </Card>
+  <Card title="Data Marketplace" icon="store" href="/features/data-marketplace">
+    Explore the marketplace for datasets and algorithms
+  </Card>
+  <Card title="Compute Jobs Guide" icon="code" href="/guides/compute-jobs">
+    Step-by-step guide to running Compute-to-Data jobs
+  </Card>
+  <Card title="GDPR Compliance" icon="shield" href="/compliance/gdpr">
+    Maintain compliance with data protection regulations
+  </Card>
+</CardGroup>

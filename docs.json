@@ -1,122 +1,116 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "AgrospAI Data Space Portal",
+  "theme": "linden",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#72044a",
+    "light": "#040404",
+    "dark": "#044b67"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/347753b0-3847-40c7-aaed-c14b727eecca.png",
+  "logo": {
+    "light": "https://media.brand.dev/635ba728-647a-4975-a1de-af9b01301fb7.svg",
+    "dark": "https://media.brand.dev/635ba728-647a-4975-a1de-af9b01301fb7.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/AgrospAI/mvg-portal"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/AgrospAI/mvg-portal"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/data-marketplace",
+              "features/compute-to-data",
+              "features/asset-publishing",
+              "features/asset-discovery",
+              "features/wallet-integration"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "User Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/publishing-assets",
+              "guides/consuming-assets",
+              "guides/compute-jobs",
+              "guides/wallet-setup",
+              "guides/automation"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Configuration",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "configuration/environment-variables",
+              "configuration/network-setup",
+              "configuration/marketplace-fees",
+              "configuration/pricing-options"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Development",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Setup",
             "pages": [
-              "api-reference/introduction"
+              "development/local-development",
+              "development/barge-integration",
+              "development/testing"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Technical Reference",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "reference/data-sources",
+              "reference/hooks",
+              "reference/utilities",
+              "reference/components"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/production-build",
+              "deployment/docker",
+              "deployment/hosting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Compliance",
+        "groups": [
+          {
+            "group": "Privacy & Legal",
+            "pages": [
+              "compliance/gdpr",
+              "compliance/privacy-policies",
+              "compliance/terms-conditions",
+              "compliance/gaia-x"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }
